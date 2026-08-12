@@ -1,0 +1,111 @@
+.input-panel {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 8px 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.input-panel__textarea {
+  width: 100%;
+  min-height: 200px;
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.7;
+  resize: vertical;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.input-panel__textarea::placeholder {
+  color: var(--text-faint);
+}
+
+.input-panel__textarea:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(201, 164, 85, 0.14);
+}
+
+.input-panel__actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+}
+
+.input-panel__clear-btn {
+  background: transparent;
+  border: 1px solid var(--card-border);
+  color: var(--text-muted);
+  font-weight: 700;
+  font-size: 13.5px;
+  padding: 12px 18px;
+  border-radius: 999px;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.input-panel__clear-btn:hover:not(:disabled) {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.input-panel__clear-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.input-panel__btn {
+  background: linear-gradient(135deg, var(--gold-bright), var(--gold));
+  color: #241a0f;
+  border: none;
+  font-weight: 900;
+  font-size: 16px;
+  padding: 14px 30px;
+  border-radius: 999px;
+  box-shadow: 0 10px 24px rgba(201, 164, 85, 0.28);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.2s ease;
+}
+
+.input-panel__btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px rgba(201, 164, 85, 0.38);
+}
+
+.input-panel__btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.input-panel__btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+@media (max-width: 640px) {
+  .input-panel {
+    padding: 8px 16px 20px;
+  }
+  .input-panel__actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+  .input-panel__btn {
+    width: 100%;
+    padding: 16px;
+    font-size: 16px;
+  }
+  .input-panel__clear-btn {
+    width: 100%;
+    padding: 13px;
+    text-align: center;
+  }
+  .input-panel__textarea {
+    min-height: 160px;
+    font-size: 16px; /* iOSズーム防止 */
+  }
+}
