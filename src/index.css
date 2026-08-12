@@ -1,0 +1,107 @@
+:root {
+  /* --- Color tokens (深い夜の恋・金の装飾をテーマにした配色) --- */
+  --bg: #16101d;
+  --bg-soft: #1c1424;
+  --card: #221a2c;
+  --card-border: rgba(201, 164, 85, 0.22);
+  --card-border-hover: rgba(201, 164, 85, 0.5);
+  --gold: #c9a455;
+  --gold-bright: #ecca82;
+  --gold-dim: #8a7239;
+  --rose: #c2807e;
+  --text: #f4ece1;
+  --text-muted: #a2909f;
+  --text-faint: #6f6076;
+  --success: #8fbf9a;
+  --danger: #d17d7d;
+  --overlay: rgba(10, 6, 14, 0.72);
+
+  /* --- Type ---
+     外部フォント配信(Google Fonts等)への通信を完全に排除するため、
+     OS標準搭載の日本語フォントのみで構成する。 */
+  --font-display: 'Hiragino Mincho ProN', 'Yu Mincho', 'YuMincho', serif;
+  --font-body: 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', 'Yu Gothic', 'Meiryo', sans-serif;
+
+  --radius-lg: 20px;
+  --radius-md: 14px;
+  --radius-sm: 8px;
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background-image:
+    radial-gradient(circle at 15% 0%, rgba(201, 164, 85, 0.09), transparent 45%),
+    radial-gradient(circle at 90% 20%, rgba(194, 128, 126, 0.08), transparent 40%);
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+h1, h2, h3 {
+  font-family: var(--font-display);
+  margin: 0;
+  letter-spacing: 0.02em;
+}
+
+p {
+  margin: 0;
+}
+
+button {
+  font-family: var(--font-body);
+  cursor: pointer;
+}
+
+textarea {
+  font-family: var(--font-body);
+}
+
+::selection {
+  background: rgba(201, 164, 85, 0.35);
+  color: var(--text);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-soft);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--gold-dim);
+  border-radius: 8px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--gold-bright);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
