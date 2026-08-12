@@ -1,6 +1,6 @@
 import './InputPanel.css';
 
-export default function InputPanel({ value, onChange, onOrganize, disabled }) {
+export default function InputPanel({ value, onChange, onOrganize, onClear, disabled }) {
   return (
     <section className="input-panel">
       <textarea
@@ -11,14 +11,25 @@ export default function InputPanel({ value, onChange, onOrganize, disabled }) {
         rows={10}
         aria-label="GEM出力の貼り付け欄"
       />
-      <button
-        className="input-panel__btn"
-        onClick={onOrganize}
-        disabled={disabled}
-        type="button"
-      >
-        ✨ 投稿を整理する
-      </button>
+      <div className="input-panel__actions">
+        <button
+          className="input-panel__clear-btn"
+          onClick={onClear}
+          disabled={!value}
+          type="button"
+        >
+          🗑️ 前回の文章を削除
+        </button>
+        <button
+          className="input-panel__btn"
+          onClick={onOrganize}
+          disabled={disabled}
+          type="button"
+        >
+          ✨ 投稿を整理する
+        </button>
+      </div>
     </section>
   );
 }
+

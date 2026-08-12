@@ -1,8 +1,9 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import Header from './components/Header.jsx';
 import InputPanel from './components/InputPanel.jsx';
+import QuickStartButton from './components/QuickStartButton.jsx';
 import CopyAllBar from './components/CopyAllBar.jsx';
-import ResultCard from './components/ResultCard.jsx';
+import MultiFieldCard from './components/MultiFieldCard.jsx';
 import ImagePromptSection from './components/ImagePromptSection.jsx';
 import HistoryPanel from './components/HistoryPanel.jsx';
 import Toast from './components/Toast.jsx';
@@ -11,83 +12,112 @@ import { copyToClipboard } from './utils/clipboard.js';
 import {
   parseSections,
   parseImagePrompts,
-  extractHashtags,
-  SECTION_ORDER,
-  HASHTAG_SECTIONS,
+  EMPTY_SECTIONS_TEMPLATE,
+  IMAGE_SUB_DEFS,
 } from './utils/parser.js';
 import './App.css';
 
-const ICONS = {
-  theme: '💎',
-  tiktok: '🎵',
-  instagram: '📸',
-  x: '𝕏',
-  threads: '🧵',
-  note: '📝',
-  wordpress: '🌐',
-};
-
-const SECTION_LABELS = {
-  theme: '選定テーマ',
-  tiktok: 'TikTok',
-  instagram: 'Instagram',
-  x: 'X',
-  threads: 'Threads',
-  note: 'note',
-  wordpress: 'WordPress',
-};
-
-const IMAGE_SUB_LABELS = {
-  tiktok_no_text: '① TikTok・文字なし',
-  tiktok_text: '② TikTok・文字あり',
-  note_no_text: '③ note・文字なし',
-  note_text: '④ note・文字あり',
-  wordpress_eyecatch: '⑤ WordPress・アイキャッチ',
-};
-
-const EMPTY_SECTIONS = {
-  theme: '',
-  tiktok: '',
-  instagram: '',
-  x: '',
-  threads: '',
-  note: '',
-  wordpress: '',
-};
-
 const EMPTY_IMAGE_PROMPTS = {
-  tiktok_no_text: '',
-  tiktok_text: '',
-  note_no_text: '',
-  note_text: '',
+  tiktok_video: '',
+  tiktok_thumbnail: '',
+  note_image: '',
+  note_thumbnail: '',
   wordpress_eyecatch: '',
 };
 
-function buildCopyAllText(sections, imagePrompts) {
+const SECTION_LABEL_MAP = {
+  theme: '選定テーマ',
+  tiktok_title: 'TikTokタイトル',
+  tiktok_script: 'TikTok台本',
+  tiktok_hashtags: 'TikTokハッシュタグ',
+  instagram: 'Instagram',
+  instagram_hashtags: 'Instagramハッシュタグ',
+  x: 'X',
+  x_hashtags: 'Xハッシュタグ',
+  threads: 'Threads',
+  threads_hashtags: 'Threadsハッシュタグ',
+  note_title: 'noteタイトル',
+  note_body: 'note本文',
+  note_hashtags: 'noteハッシュタグ',
+  wordpress_seo_title: 'WordPress SEOタイトル',
+  wordpress_article_title: 'WordPress記事タイトル',
+  wordpress_meta_description: 'WordPressメタディスクリプション',
+  wordpress_keywords: 'WordPressキーワード',
+  wordpress_body: 'WordPress本文',
+  wordpress_cta: 'WordPress CTA',
+};
+
+// 「📋 全部コピー」の並び順（依頼どおりの順序を厳守）
+const COPY_ALL_ORDER = [
+  'theme',
+  'tiktok_title',
+  'tiktok_script',
+  'tiktok_hashtags',
+  'instagram',
+  'instagram_hashtags',
+  'x',
+  'x_hashtags',
+  'threads',
+  'threads_hashtags',
+  'note_title',
+  'note_body',
+  'note_hashtags',
+  // WordPressはひとまとまりとして扱う（依頼の並び順どおり）
+  '__wordpress__',
+];
+
+function buildWordpressBlock(sections) {
   const parts = [];
-  const order = ['tiktok', 'instagram', 'x', 'threads', 'note', 'wordpress'];
-  for (const key of order) {
-    const body = sections[key];
-    if (body && body.trim()) {
-      parts.push(`■ ${SECTION_LABELS[key]}\n${body.trim()}`);
+  const wpFields = [
+    ['SEOタイトル', sections.wordpress_seo_title],
+    ['記事タイトル', sections.wordpress_article_title],
+    ['メタディスクリプション', sections.wordpress_meta_description],
+    ['キーワード', sections.wordpress_keywords],
+    ['本文', sections.wordpress_body],
+    ['CTA', sections.wordpress_cta],
+  ];
+  for (const [label, value] of wpFields) {
+    if (value && value.trim()) {
+      parts.push(`【${label}】\n${value.trim()}`);
     }
   }
+  return parts.join('\n\n');
+}
+
+function buildCopyAllText(sections, imagePrompts) {
+  const parts = [];
+  for (const key of COPY_ALL_ORDER) {
+    if (key === '__wordpress__') {
+      const wpBlock = buildWordpressBlock(sections);
+      if (wpBlock.trim()) {
+        parts.push(`■ WordPress\n${wpBlock}`);
+      }
+      continue;
+    }
+    const body = sections[key];
+    if (body && body.trim()) {
+      parts.push(`■ ${SECTION_LABEL_MAP[key]}\n${body.trim()}`);
+    }
+  }
+
   const imageParts = [];
-  for (const key of Object.keys(IMAGE_SUB_LABELS)) {
-    if (imagePrompts[key] && imagePrompts[key].trim()) {
-      imageParts.push(`${IMAGE_SUB_LABELS[key]}\n${imagePrompts[key].trim()}`);
+  for (const def of IMAGE_SUB_DEFS) {
+    const v = imagePrompts[def.key];
+    if (v && v.trim()) {
+      imageParts.push(`${def.label}\n${v.trim()}`);
     }
   }
   if (imageParts.length) {
     parts.push(`■ 画像生成プロンプト\n\n${imageParts.join('\n\n')}`);
   }
+
   return parts.join('\n\n' + '─'.repeat(20) + '\n\n');
 }
 
 export default function App() {
   const [rawInput, setRawInput] = useState('');
-  const [sections, setSections] = useState(EMPTY_SECTIONS);
-  const [imagePrompts, setImagePrompts] = useState(EMPTY_IMAGE_PROMPTS);
+  const [sections, setSections] = useState({ ...EMPTY_SECTIONS_TEMPLATE });
+  const [imagePrompts, setImagePrompts] = useState({ ...EMPTY_IMAGE_PROMPTS });
   const [organized, setOrganized] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [toast, setToast] = useState({ message: '', visible: false });
@@ -103,6 +133,18 @@ export default function App() {
     }, 1800);
   }, []);
 
+  const handleQuickStartCopy = useCallback(async (text) => {
+    const ok = await copyToClipboard(text);
+    showToast(ok ? '📋 コピーしました。GEMに貼り付けてください' : '❌ コピーに失敗しました');
+  }, [showToast]);
+
+  const handleClearInput = useCallback(() => {
+    // 貼り付け欄のReact stateを確実に空文字にする。
+    // rawInputはどこにも自動永続化されていないため、再読み込みしても復活しない。
+    setRawInput('');
+    showToast('🗑️ 前回の文章を削除しました');
+  }, [showToast]);
+
   const handleOrganize = useCallback(() => {
     if (!rawInput.trim()) {
       showToast('⚠️ 先にGEMの出力を貼り付けてください');
@@ -110,21 +152,15 @@ export default function App() {
     }
     const parsed = parseSections(rawInput);
     const images = parseImagePrompts(parsed.image);
-    setSections({
-      theme: parsed.theme,
-      tiktok: parsed.tiktok,
-      instagram: parsed.instagram,
-      x: parsed.x,
-      threads: parsed.threads,
-      note: parsed.note,
-      wordpress: parsed.wordpress,
-    });
-    setImagePrompts(images);
+    // imageキーはUI表示に使わないため除外しつつ他はそのまま反映
+    const { image, ...restSections } = parsed;
+    setSections({ ...EMPTY_SECTIONS_TEMPLATE, ...restSections });
+    setImagePrompts({ ...EMPTY_IMAGE_PROMPTS, ...images });
     setOrganized(true);
     showToast('✨ 投稿を整理しました');
   }, [rawInput, showToast]);
 
-  const updateSection = useCallback((key, value) => {
+  const updateField = useCallback((key, value) => {
     setSections((prev) => ({ ...prev, [key]: value }));
   }, []);
 
@@ -132,15 +168,9 @@ export default function App() {
     setImagePrompts((prev) => ({ ...prev, [key]: value }));
   }, []);
 
-  const handleCopySection = useCallback(async (key) => {
+  const handleCopyField = useCallback(async (key, label) => {
     const ok = await copyToClipboard(sections[key]);
-    showToast(ok ? `📋 ${SECTION_LABELS[key]}をコピーしました` : '❌ コピーに失敗しました');
-  }, [sections, showToast]);
-
-  const handleCopyHashtags = useCallback(async (key) => {
-    const tags = extractHashtags(sections[key]);
-    const ok = await copyToClipboard(tags);
-    showToast(ok ? `# ${SECTION_LABELS[key]}のハッシュタグをコピーしました` : '❌ コピーに失敗しました');
+    showToast(ok ? `📋 ${label}をコピーしました` : '❌ コピーに失敗しました');
   }, [sections, showToast]);
 
   const handleCopyImageSub = useCallback(async (key, label) => {
@@ -149,9 +179,9 @@ export default function App() {
   }, [imagePrompts, showToast]);
 
   const handleCopyAllImagePrompts = useCallback(async () => {
-    const text = Object.keys(IMAGE_SUB_LABELS)
-      .filter((k) => imagePrompts[k] && imagePrompts[k].trim())
-      .map((k) => `${IMAGE_SUB_LABELS[k]}\n${imagePrompts[k].trim()}`)
+    const text = IMAGE_SUB_DEFS
+      .filter((def) => imagePrompts[def.key] && imagePrompts[def.key].trim())
+      .map((def) => `${def.label}\n${imagePrompts[def.key].trim()}`)
       .join('\n\n');
     const ok = await copyToClipboard(text);
     showToast(ok ? '📋 画像プロンプトを5種類コピーしました' : '❌ コピーに失敗しました');
@@ -176,39 +206,70 @@ export default function App() {
     savePost({
       theme: sections.theme,
       rawText: rawInput,
-      sections: { ...sections, image: imagePrompts },
+      sections: { ...sections, __imagePrompts: imagePrompts },
     });
     showToast('💾 投稿履歴に保存しました');
   }, [sections, imagePrompts, rawInput, savePost, showToast]);
 
   const handleSelectHistory = useCallback((item) => {
     setRawInput(item.rawText || '');
-    const savedSections = item.sections || {};
-    setSections({
-      theme: savedSections.theme || '',
-      tiktok: savedSections.tiktok || '',
-      instagram: savedSections.instagram || '',
-      x: savedSections.x || '',
-      threads: savedSections.threads || '',
-      note: savedSections.note || '',
-      wordpress: savedSections.wordpress || '',
-    });
-    setImagePrompts(savedSections.image || EMPTY_IMAGE_PROMPTS);
+    const saved = item.sections || {};
+    const { __imagePrompts, ...restSaved } = saved;
+    setSections({ ...EMPTY_SECTIONS_TEMPLATE, ...restSaved });
+    setImagePrompts({ ...EMPTY_IMAGE_PROMPTS, ...(__imagePrompts || {}) });
     setOrganized(true);
     setHistoryOpen(false);
     showToast('📚 過去の投稿を読み込みました');
   }, [showToast]);
 
-  const cardKeys = useMemo(() => SECTION_ORDER.filter((s) => s.key !== 'theme' && s.key !== 'image'), []);
+  // TikTok: タイトル・台本・ハッシュタグを完全に独立した3項目として表示
+  const tiktokFields = [
+    { key: 'tiktok_title', label: '【TikTokタイトル】', value: sections.tiktok_title, copyText: 'タイトルコピー', rows: 2 },
+    { key: 'tiktok_script', label: '【TikTok台本】', value: sections.tiktok_script, copyText: '台本コピー', rows: 8 },
+    { key: 'tiktok_hashtags', label: '【TikTokハッシュタグ】', value: sections.tiktok_hashtags, copyText: 'ハッシュタグコピー', rows: 2 },
+  ];
+
+  const instagramFields = [
+    { key: 'instagram', label: '【Instagram】', value: sections.instagram, copyText: '本文コピー', rows: 5 },
+    { key: 'instagram_hashtags', label: '【Instagramハッシュタグ】', value: sections.instagram_hashtags, copyText: 'ハッシュタグコピー', rows: 2 },
+  ];
+
+  const xFields = [
+    { key: 'x', label: '【X】', value: sections.x, copyText: '本文コピー', rows: 4 },
+    { key: 'x_hashtags', label: '【Xハッシュタグ】', value: sections.x_hashtags, copyText: 'ハッシュタグコピー', rows: 2 },
+  ];
+
+  const threadsFields = [
+    { key: 'threads', label: '【Threads】', value: sections.threads, copyText: '本文コピー', rows: 4 },
+    { key: 'threads_hashtags', label: '【Threadsハッシュタグ】', value: sections.threads_hashtags, copyText: 'ハッシュタグコピー', rows: 2 },
+  ];
+
+  const noteFields = [
+    { key: 'note_title', label: '【noteタイトル】', value: sections.note_title, copyText: 'タイトルコピー', rows: 2 },
+    { key: 'note_body', label: '【note本文】', value: sections.note_body, copyText: '本文コピー', rows: 6 },
+    { key: 'note_hashtags', label: '【noteハッシュタグ】', value: sections.note_hashtags, copyText: 'ハッシュタグコピー', rows: 2 },
+  ];
+
+  const wordpressFields = [
+    { key: 'wordpress_seo_title', label: '【SEOタイトル】', value: sections.wordpress_seo_title, copyText: 'コピー', rows: 2 },
+    { key: 'wordpress_article_title', label: '【記事タイトル】', value: sections.wordpress_article_title, copyText: 'コピー', rows: 2 },
+    { key: 'wordpress_meta_description', label: '【メタディスクリプション】', value: sections.wordpress_meta_description, copyText: 'コピー', rows: 3 },
+    { key: 'wordpress_keywords', label: '【キーワード】', value: sections.wordpress_keywords, copyText: 'コピー', rows: 2 },
+    { key: 'wordpress_body', label: '【本文】', value: sections.wordpress_body, copyText: 'コピー', rows: 8 },
+    { key: 'wordpress_cta', label: '【CTA】', value: sections.wordpress_cta, copyText: 'コピー', rows: 3 },
+  ];
 
   return (
     <div className="app">
       <Header onOpenHistory={() => setHistoryOpen(true)} historyCount={history.length} />
 
+      <QuickStartButton onCopied={handleQuickStartCopy} />
+
       <InputPanel
         value={rawInput}
         onChange={setRawInput}
         onOrganize={handleOrganize}
+        onClear={handleClearInput}
         disabled={!rawInput.trim()}
       />
 
@@ -218,18 +279,48 @@ export default function App() {
 
           <main className="app__results">
             <div className="app__grid">
-              {cardKeys.map(({ key, label }) => (
-                <ResultCard
-                  key={key}
-                  label={SECTION_LABELS[key] || label}
-                  icon={ICONS[key]}
-                  value={sections[key]}
-                  onChange={(v) => updateSection(key, v)}
-                  onCopy={() => handleCopySection(key)}
-                  hashtags={HASHTAG_SECTIONS.includes(key) ? extractHashtags(sections[key]) : undefined}
-                  onCopyHashtags={() => handleCopyHashtags(key)}
-                />
-              ))}
+              <MultiFieldCard
+                label="TikTok"
+                icon="🎵"
+                fields={tiktokFields}
+                onChangeField={updateField}
+                onCopyField={handleCopyField}
+              />
+              <MultiFieldCard
+                label="Instagram"
+                icon="📸"
+                fields={instagramFields}
+                onChangeField={updateField}
+                onCopyField={handleCopyField}
+              />
+              <MultiFieldCard
+                label="X"
+                icon="𝕏"
+                fields={xFields}
+                onChangeField={updateField}
+                onCopyField={handleCopyField}
+              />
+              <MultiFieldCard
+                label="Threads"
+                icon="🧵"
+                fields={threadsFields}
+                onChangeField={updateField}
+                onCopyField={handleCopyField}
+              />
+              <MultiFieldCard
+                label="note"
+                icon="📝"
+                fields={noteFields}
+                onChangeField={updateField}
+                onCopyField={handleCopyField}
+              />
+              <MultiFieldCard
+                label="WordPress"
+                icon="🌐"
+                fields={wordpressFields}
+                onChangeField={updateField}
+                onCopyField={handleCopyField}
+              />
 
               <ImagePromptSection
                 prompts={imagePrompts}

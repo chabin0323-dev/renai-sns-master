@@ -31,8 +31,35 @@
   box-shadow: 0 0 0 3px rgba(201, 164, 85, 0.14);
 }
 
+.input-panel__actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+}
+
+.input-panel__clear-btn {
+  background: transparent;
+  border: 1px solid var(--card-border);
+  color: var(--text-muted);
+  font-weight: 700;
+  font-size: 13.5px;
+  padding: 12px 18px;
+  border-radius: 999px;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.input-panel__clear-btn:hover:not(:disabled) {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.input-panel__clear-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
 .input-panel__btn {
-  align-self: flex-end;
   background: linear-gradient(135deg, var(--gold-bright), var(--gold));
   color: #241a0f;
   border: none;
@@ -63,11 +90,19 @@
   .input-panel {
     padding: 8px 16px 20px;
   }
+  .input-panel__actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
   .input-panel__btn {
-    align-self: stretch;
     width: 100%;
     padding: 16px;
     font-size: 16px;
+  }
+  .input-panel__clear-btn {
+    width: 100%;
+    padding: 13px;
+    text-align: center;
   }
   .input-panel__textarea {
     min-height: 160px;
