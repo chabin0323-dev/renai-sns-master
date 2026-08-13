@@ -22,7 +22,7 @@ export default function CopyAllBar({ onCopyAll, onSave, theme, onCreateVideo, vi
               disabled={videoDisabled}
               type="button"
             >
-              🎬 この投稿で動画を作る
+              🎬 この投稿でバズ動画を作る
             </button>
           )}
         </div>
