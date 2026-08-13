@@ -7,6 +7,7 @@ import MultiFieldCard from './components/MultiFieldCard.jsx';
 import ImagePromptSection from './components/ImagePromptSection.jsx';
 import HistoryPanel from './components/HistoryPanel.jsx';
 import Toast from './components/Toast.jsx';
+import VideoMaker from './components/VideoMaker.jsx';
 import { usePostHistory } from './hooks/useLocalStorage.js';
 import { copyToClipboard } from './utils/clipboard.js';
 import {
@@ -121,6 +122,9 @@ export default function App() {
   const [organized, setOrganized] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [toast, setToast] = useState({ message: '', visible: false });
+  // 恋愛バズ動画メーカー用の画面切り替え（既存のorganized等のstateパターンを踏襲）。
+  // 'sns' = 通常の投稿マスター画面 / 'video' = 動画メーカー画面
+  const [activeView, setActiveView] = useState('sns');
   const toastTimer = useRef(null);
 
   const { history, savePost, deletePost, clearHistory } = usePostHistory();
@@ -222,6 +226,35 @@ export default function App() {
     showToast('📚 過去の投稿を読み込みました');
   }, [showToast]);
 
+  // --- 恋愛バズ動画メーカー関連（追加分。既存ロジックには影響しない） ---
+  const handleOpenVideoMaker = useCallback(() => {
+    setActiveView('video');
+  }, []);
+
+  const handleBackToSns = useCallback(() => {
+    setActiveView('sns');
+  }, []);
+
+  const handleVideoCopy = useCallback(async (text, label) => {
+    const ok = await copyToClipboard(text);
+    showToast(ok ? `📋 ${label}をコピーしました` : '❌ コピーに失敗しました');
+  }, [showToast]);
+
+  // SNS投稿マスターの既存stateから、動画メーカーに必要なデータだけを取り出す。
+  // ページ遷移やlocalStorageを経由せず、propsとして直接渡すため再入力は発生しない。
+  // 【修正1】CTAはwordpress_ctaを使わない。TikTok用動画のため、TikTok台本自体の
+  // 末尾（＝既存のTikTok投稿にすでに設定されている導線）をそのままCTAとして扱う。
+  // 【修正2】imageDataは実装しない。引き継ぐ画像情報はimagePrompts.tiktok_video（文字なし
+  // 9:16画像生成プロンプト）のみとする。
+  const videoSourceData = {
+    theme: sections.theme,
+    tiktokTitle: sections.tiktok_title,
+    tiktokScript: sections.tiktok_script,
+    tiktokHashtags: sections.tiktok_hashtags,
+    tiktokImagePrompt: imagePrompts.tiktok_video,
+  };
+  const videoDisabled = !sections.tiktok_script || !sections.tiktok_script.trim();
+
   // TikTok: タイトル・台本・ハッシュタグを完全に独立した3項目として表示
   const tiktokFields = [
     { key: 'tiktok_title', label: '【TikTokタイトル】', value: sections.tiktok_title, copyText: 'タイトルコピー', rows: 2 },
@@ -263,80 +296,93 @@ export default function App() {
     <div className="app">
       <Header onOpenHistory={() => setHistoryOpen(true)} historyCount={history.length} />
 
-      <QuickStartButton onCopied={handleQuickStartCopy} />
-
-      <InputPanel
-        value={rawInput}
-        onChange={setRawInput}
-        onOrganize={handleOrganize}
-        onClear={handleClearInput}
-        disabled={!rawInput.trim()}
-      />
-
-      {organized && (
+      {activeView === 'sns' && (
         <>
-          <CopyAllBar onCopyAll={handleCopyAll} onSave={handleSave} theme={sections.theme} />
+          <QuickStartButton onCopied={handleQuickStartCopy} />
 
-          <main className="app__results">
-            <div className="app__grid">
-              <MultiFieldCard
-                label="TikTok"
-                icon="🎵"
-                fields={tiktokFields}
-                onChangeField={updateField}
-                onCopyField={handleCopyField}
-              />
-              <MultiFieldCard
-                label="Instagram"
-                icon="📸"
-                fields={instagramFields}
-                onChangeField={updateField}
-                onCopyField={handleCopyField}
-              />
-              <MultiFieldCard
-                label="X"
-                icon="𝕏"
-                fields={xFields}
-                onChangeField={updateField}
-                onCopyField={handleCopyField}
-              />
-              <MultiFieldCard
-                label="Threads"
-                icon="🧵"
-                fields={threadsFields}
-                onChangeField={updateField}
-                onCopyField={handleCopyField}
-              />
-              <MultiFieldCard
-                label="note"
-                icon="📝"
-                fields={noteFields}
-                onChangeField={updateField}
-                onCopyField={handleCopyField}
-              />
-              <MultiFieldCard
-                label="WordPress"
-                icon="🌐"
-                fields={wordpressFields}
-                onChangeField={updateField}
-                onCopyField={handleCopyField}
+          <InputPanel
+            value={rawInput}
+            onChange={setRawInput}
+            onOrganize={handleOrganize}
+            onClear={handleClearInput}
+            disabled={!rawInput.trim()}
+          />
+
+          {organized && (
+            <>
+              <CopyAllBar
+                onCopyAll={handleCopyAll}
+                onSave={handleSave}
+                theme={sections.theme}
               />
 
-              <ImagePromptSection
-                prompts={imagePrompts}
-                onChangeSub={updateImageSub}
-                onCopySub={handleCopyImageSub}
-                onCopyAllPrompts={handleCopyAllImagePrompts}
-              />
+              <main className="app__results">
+                <div className="app__grid">
+                  <MultiFieldCard
+                    label="TikTok"
+                    icon="🎵"
+                    fields={tiktokFields}
+                    onChangeField={updateField}
+                    onCopyField={handleCopyField}
+                    videoAction={{ onClick: handleOpenVideoMaker, disabled: videoDisabled }}
+                  />
+                  <MultiFieldCard
+                    label="Instagram"
+                    icon="📸"
+                    fields={instagramFields}
+                    onChangeField={updateField}
+                    onCopyField={handleCopyField}
+                  />
+                  <MultiFieldCard
+                    label="X"
+                    icon="𝕏"
+                    fields={xFields}
+                    onChangeField={updateField}
+                    onCopyField={handleCopyField}
+                  />
+                  <MultiFieldCard
+                    label="Threads"
+                    icon="🧵"
+                    fields={threadsFields}
+                    onChangeField={updateField}
+                    onCopyField={handleCopyField}
+                  />
+                  <MultiFieldCard
+                    label="note"
+                    icon="📝"
+                    fields={noteFields}
+                    onChangeField={updateField}
+                    onCopyField={handleCopyField}
+                  />
+                  <MultiFieldCard
+                    label="WordPress"
+                    icon="🌐"
+                    fields={wordpressFields}
+                    onChangeField={updateField}
+                    onCopyField={handleCopyField}
+                  />
+
+                  <ImagePromptSection
+                    prompts={imagePrompts}
+                    onChangeSub={updateImageSub}
+                    onCopySub={handleCopyImageSub}
+                    onCopyAllPrompts={handleCopyAllImagePrompts}
+                  />
+                </div>
+              </main>
+            </>
+          )}
+
+          {!organized && (
+            <div className="app__empty">
+              <p>💎 GEMで生成した投稿を貼り付けて「投稿を整理する」を押すと、ここにSNSごとの投稿カードが並びます。</p>
             </div>
-          </main>
+          )}
         </>
       )}
 
-      {!organized && (
-        <div className="app__empty">
-          <p>💎 GEMで生成した投稿を貼り付けて「投稿を整理する」を押すと、ここにSNSごとの投稿カードが並びます。</p>
-        </div>
+      {activeView === 'video' && (
+        <VideoMaker data={videoSourceData} onBack={handleBackToSns} onCopy={handleVideoCopy} />
       )}
 
       <HistoryPanel
