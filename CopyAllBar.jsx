@@ -1,6 +1,6 @@
 import './CopyAllBar.css';
 
-export default function CopyAllBar({ onCopyAll, onSave, theme }) {
+export default function CopyAllBar({ onCopyAll, onSave, theme, onCreateVideo, videoDisabled }) {
   return (
     <div className="copy-all-bar">
       <div className="copy-all-bar__inner">
@@ -15,8 +15,19 @@ export default function CopyAllBar({ onCopyAll, onSave, theme }) {
           <button className="copy-all-bar__copy" onClick={onCopyAll} type="button">
             📋 全部コピー
           </button>
+          {onCreateVideo && (
+            <button
+              className="copy-all-bar__video"
+              onClick={onCreateVideo}
+              disabled={videoDisabled}
+              type="button"
+            >
+              🎬 この投稿で動画を作る
+            </button>
+          )}
         </div>
       </div>
     </div>
   );
 }
+
