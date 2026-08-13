@@ -20,3 +20,4 @@ export default function CopyAllBar({ onCopyAll, onSave, theme }) {
     </div>
   );
 }
+
