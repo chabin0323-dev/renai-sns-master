@@ -20,20 +20,19 @@ import './VideoMaker.css';
  *     tiktokScript: string,
  *     tiktokHashtags: string,
  *     tiktokImagePrompt: string,
- *     cta: string,
  *   },
  *   onBack: () => void,
  *   onCopy: (text: string, label: string) => void,
  * }} props
  */
 export default function VideoMaker({ data, onBack, onCopy }) {
-  const { theme, tiktokTitle, tiktokScript, tiktokHashtags, tiktokImagePrompt, cta } = data;
+  const { theme, tiktokTitle, tiktokScript, tiktokHashtags, tiktokImagePrompt } = data;
 
   const lines = useMemo(() => splitScriptToLines(tiktokScript), [tiktokScript]);
   const timeline = useMemo(() => buildVideoTimeline(lines), [lines]);
   const capcutText = useMemo(
-    () => buildCapCutInstructions({ theme, title: tiktokTitle, timeline, hasImagePrompt: !!tiktokImagePrompt?.trim(), cta }),
-    [theme, tiktokTitle, timeline, tiktokImagePrompt, cta]
+    () => buildCapCutInstructions({ theme, title: tiktokTitle, timeline, hasImagePrompt: !!tiktokImagePrompt?.trim() }),
+    [theme, tiktokTitle, timeline, tiktokImagePrompt]
   );
 
   const telopLines = lines; // テロップ = 台本を短文分割したもの（すでに1行=1テロップ単位）
@@ -84,6 +83,9 @@ export default function VideoMaker({ data, onBack, onCopy }) {
           {/* セクション2：動画構成タイムライン */}
           <section className="vm-card">
             <h2 className="vm-card__title">🎞️ 動画構成（想定{timeline.totalSeconds}秒）</h2>
+            {timeline.durationNote && (
+              <p className="vm-note vm-note--info">ℹ️ {timeline.durationNote}</p>
+            )}
             <div className="vm-timeline">
               {timeline.beats.map((beat) => (
                 <div className="vm-beat" key={beat.key}>

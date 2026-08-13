@@ -242,13 +242,16 @@ export default function App() {
 
   // SNS投稿マスターの既存stateから、動画メーカーに必要なデータだけを取り出す。
   // ページ遷移やlocalStorageを経由せず、propsとして直接渡すため再入力は発生しない。
+  // 【修正1】CTAはwordpress_ctaを使わない。TikTok用動画のため、TikTok台本自体の
+  // 末尾（＝既存のTikTok投稿にすでに設定されている導線）をそのままCTAとして扱う。
+  // 【修正2】imageDataは実装しない。引き継ぐ画像情報はimagePrompts.tiktok_video（文字なし
+  // 9:16画像生成プロンプト）のみとする。
   const videoSourceData = {
     theme: sections.theme,
     tiktokTitle: sections.tiktok_title,
     tiktokScript: sections.tiktok_script,
     tiktokHashtags: sections.tiktok_hashtags,
     tiktokImagePrompt: imagePrompts.tiktok_video,
-    cta: sections.wordpress_cta,
   };
   const videoDisabled = !sections.tiktok_script || !sections.tiktok_script.trim();
 
