@@ -19,12 +19,33 @@ import {
 import './App.css';
 
 const EMPTY_IMAGE_PROMPTS = {
-  tiktok_video: '',
-  tiktok_thumbnail: '',
-  note_image: '',
-  note_thumbnail: '',
-  wordpress_eyecatch: '',
+  tiktok_video: { withText: '', noText: '' },
+  tiktok_thumbnail: { withText: '', noText: '' },
+  note_image: { withText: '', noText: '' },
+  note_thumbnail: { withText: '', noText: '' },
+  wordpress_eyecatch: { withText: '', noText: '' },
 };
+
+// 【重要】localStorageに保存された旧バージョンの履歴データは、imagePromptsの各値が
+// 文字列（例: "prompt text"）のままになっている。新バージョンは { withText, noText }
+// というオブジェクト形式のため、古い履歴を読み込んでも壊れないよう変換する。
+function normalizeImagePromptsShape(raw) {
+  const result = { ...EMPTY_IMAGE_PROMPTS };
+  if (!raw) return result;
+  for (const key of Object.keys(EMPTY_IMAGE_PROMPTS)) {
+    const v = raw[key];
+    if (v && typeof v === 'object') {
+      result[key] = { withText: v.withText || '', noText: v.noText || '' };
+    } else if (typeof v === 'string' && v.trim()) {
+      // 旧形式（文字列1本）は、従来どおり主に使われていた種別へ引き継ぐ
+      const legacyDefault = key === 'tiktok_thumbnail' || key === 'note_thumbnail' || key === 'wordpress_eyecatch'
+        ? 'withText'
+        : 'noText';
+      result[key] = { withText: '', noText: '', [legacyDefault]: v };
+    }
+  }
+  return result;
+}
 
 const SECTION_LABEL_MAP = {
   theme: '選定テーマ',
@@ -103,9 +124,12 @@ function buildCopyAllText(sections, imagePrompts) {
 
   const imageParts = [];
   for (const def of IMAGE_SUB_DEFS) {
-    const v = imagePrompts[def.key];
-    if (v && v.trim()) {
-      imageParts.push(`${def.label}\n${v.trim()}`);
+    const slot = imagePrompts[def.key] || {};
+    if (slot.withText && slot.withText.trim()) {
+      imageParts.push(`${def.label}（📝文字入り版）\n${slot.withText.trim()}`);
+    }
+    if (slot.noText && slot.noText.trim()) {
+      imageParts.push(`${def.label}（🖼️文字なし版）\n${slot.noText.trim()}`);
     }
   }
   if (imageParts.length) {
@@ -168,8 +192,11 @@ export default function App() {
     setSections((prev) => ({ ...prev, [key]: value }));
   }, []);
 
-  const updateImageSub = useCallback((key, value) => {
-    setImagePrompts((prev) => ({ ...prev, [key]: value }));
+  const updateImageSub = useCallback((key, variant, value) => {
+    setImagePrompts((prev) => ({
+      ...prev,
+      [key]: { ...prev[key], [variant]: value },
+    }));
   }, []);
 
   const handleCopyField = useCallback(async (key, label) => {
@@ -177,18 +204,26 @@ export default function App() {
     showToast(ok ? `📋 ${label}をコピーしました` : '❌ コピーに失敗しました');
   }, [sections, showToast]);
 
-  const handleCopyImageSub = useCallback(async (key, label) => {
-    const ok = await copyToClipboard(imagePrompts[key]);
-    showToast(ok ? `📋 ${label.replace('をコピー', '')}をコピーしました` : '❌ コピーに失敗しました');
+  const handleCopyImageSub = useCallback(async (key, variant, label) => {
+    const value = imagePrompts[key]?.[variant] || '';
+    const ok = await copyToClipboard(value);
+    showToast(ok ? `📋 ${label}をコピーしました` : '❌ コピーに失敗しました');
   }, [imagePrompts, showToast]);
 
   const handleCopyAllImagePrompts = useCallback(async () => {
-    const text = IMAGE_SUB_DEFS
-      .filter((def) => imagePrompts[def.key] && imagePrompts[def.key].trim())
-      .map((def) => `${def.label}\n${imagePrompts[def.key].trim()}`)
-      .join('\n\n');
+    const parts = [];
+    for (const def of IMAGE_SUB_DEFS) {
+      const slot = imagePrompts[def.key] || {};
+      if (slot.withText && slot.withText.trim()) {
+        parts.push(`${def.label}（📝文字入り版）\n${slot.withText.trim()}`);
+      }
+      if (slot.noText && slot.noText.trim()) {
+        parts.push(`${def.label}（🖼️文字なし版）\n${slot.noText.trim()}`);
+      }
+    }
+    const text = parts.join('\n\n');
     const ok = await copyToClipboard(text);
-    showToast(ok ? '📋 画像プロンプトを5種類コピーしました' : '❌ コピーに失敗しました');
+    showToast(ok ? '📋 全プロンプトをコピーしました' : '❌ コピーに失敗しました');
   }, [imagePrompts, showToast]);
 
   const handleCopyAll = useCallback(async () => {
@@ -220,7 +255,8 @@ export default function App() {
     const saved = item.sections || {};
     const { __imagePrompts, ...restSaved } = saved;
     setSections({ ...EMPTY_SECTIONS_TEMPLATE, ...restSaved });
-    setImagePrompts({ ...EMPTY_IMAGE_PROMPTS, ...(__imagePrompts || {}) });
+    // 旧バージョンの履歴（imagePromptsが文字列形式）でも壊れないよう正規化する
+    setImagePrompts(normalizeImagePromptsShape(__imagePrompts));
     setOrganized(true);
     setHistoryOpen(false);
     showToast('📚 過去の投稿を読み込みました');
@@ -246,12 +282,15 @@ export default function App() {
   // 末尾（＝既存のTikTok投稿にすでに設定されている導線）をそのままCTAとして扱う。
   // 【修正2】imageDataは実装しない。引き継ぐ画像情報はimagePrompts.tiktok_video（文字なし
   // 9:16画像生成プロンプト）のみとする。
+  // ①TikTok動画素材は「文字なし版」を優先して動画メーカーへ渡す（動画側は自前でテロップを
+  // 表示するため、画像に文字が焼き込まれていると重複・干渉してしまうため）。
+  // 万一noTextが未検出の場合のみ、withTextをフォールバックとして使用する。
   const videoSourceData = {
     theme: sections.theme,
     tiktokTitle: sections.tiktok_title,
     tiktokScript: sections.tiktok_script,
     tiktokHashtags: sections.tiktok_hashtags,
-    tiktokImagePrompt: imagePrompts.tiktok_video,
+    tiktokImagePrompt: imagePrompts.tiktok_video?.noText || imagePrompts.tiktok_video?.withText || '',
   };
   const videoDisabled = !sections.tiktok_script || !sections.tiktok_script.trim();
 
