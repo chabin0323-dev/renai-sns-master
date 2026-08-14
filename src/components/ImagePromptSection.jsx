@@ -1,8 +1,15 @@
 import { IMAGE_SUB_DEFS } from '../utils/parser.js';
 import './ImagePromptSection.css';
 
+const VARIANTS = [
+  { key: 'withText', icon: '📝', label: '文字入り版', hint: '基本はこちらを使用（日本語が崩れた場合は文字なし版へ）' },
+  { key: 'noText', icon: '🖼️', label: '文字なし版', hint: '日本語文字が崩れた場合の代替、または動画素材用' },
+];
+
 export default function ImagePromptSection({ prompts, onChangeSub, onCopySub, onCopyAllPrompts }) {
-  const hasAny = Object.values(prompts).some((v) => v && v.trim());
+  const hasAny = Object.values(prompts).some(
+    (v) => v && ((v.withText && v.withText.trim()) || (v.noText && v.noText.trim()))
+  );
 
   return (
     <article className="image-section">
@@ -18,35 +25,49 @@ export default function ImagePromptSection({ prompts, onChangeSub, onCopySub, on
           disabled={!hasAny}
           type="button"
         >
-          📋 5種類まとめてコピー
+          📋 全プロンプトをコピー
         </button>
       </header>
 
       <div className="image-section__grid">
         {IMAGE_SUB_DEFS.map((def) => {
-          const value = prompts[def.key] || '';
-          const isEmpty = !value.trim();
+          const slot = prompts[def.key] || { withText: '', noText: '' };
           return (
             <div className="image-sub-card" key={def.key}>
               <div className="image-sub-card__header">
                 <span className="image-sub-card__label">{def.label}</span>
-                <button
-                  className="image-sub-card__copy"
-                  onClick={() => onCopySub(def.key, def.copyLabel)}
-                  disabled={isEmpty}
-                  type="button"
-                >
-                  📋
-                </button>
               </div>
               <p className="image-sub-card__role">→ {def.role}</p>
-              <textarea
-                className="image-sub-card__textarea"
-                value={value}
-                onChange={(e) => onChangeSub(def.key, e.target.value)}
-                placeholder="GEMの出力にこのプロンプトがまだ含まれていません"
-                rows={5}
-              />
+
+              {VARIANTS.map((variant) => {
+                const value = slot[variant.key] || '';
+                const isEmpty = !value.trim();
+                return (
+                  <div className="image-variant" key={variant.key}>
+                    <div className="image-variant__header">
+                      <span className="image-variant__label">
+                        {variant.icon} {variant.label}
+                      </span>
+                      <button
+                        className="image-variant__copy"
+                        onClick={() => onCopySub(def.key, variant.key, `${def.copyLabel}（${variant.label}）`)}
+                        disabled={isEmpty}
+                        type="button"
+                      >
+                        📋 コピー
+                      </button>
+                    </div>
+                    <p className="image-variant__hint">{variant.hint}</p>
+                    <textarea
+                      className="image-sub-card__textarea"
+                      value={value}
+                      onChange={(e) => onChangeSub(def.key, variant.key, e.target.value)}
+                      placeholder="GEMの出力にこのプロンプトがまだ含まれていません"
+                      rows={4}
+                    />
+                  </div>
+                );
+              })}
             </div>
           );
         })}
