@@ -222,63 +222,134 @@ export function parseSections(raw) {
 }
 
 // 画像生成プロンプトの5つのサブセクション定義（役割つき）
+// 画像生成プロンプトの5つのサブセクション定義（役割・デフォルトの文字あり/なし種別つき）。
+// defaultVariant: GEM側の出力にまだ【文字入り版】【文字なし版】の明示的な区切りがない
+// 場合（従来形式の単一プロンプト）に、その内容をどちらの種別として扱うかを示す。
 export const IMAGE_SUB_DEFS = [
   {
     key: 'tiktok_video',
     order: 1,
-    label: '① TikTok動画素材・文字なし・9:16',
-    role: 'CapCutで動画素材として使用',
+    label: '① TikTok動画素材・9:16',
+    role: 'CapCutで動画素材として使用（文字なし版を推奨）',
     copyLabel: 'TikTok動画素材プロンプトをコピー',
+    defaultVariant: 'noText',
   },
   {
     key: 'tiktok_thumbnail',
     order: 2,
-    label: '② TikTokサムネイル・文字あり・9:16',
-    role: 'TikTokのサムネイルとして使用',
+    label: '② TikTokサムネイル・9:16',
+    role: 'TikTokのサムネイルとして使用（文字入り版を推奨）',
     copyLabel: 'TikTokサムネイルプロンプトをコピー',
+    defaultVariant: 'withText',
   },
   {
     key: 'note_image',
     order: 3,
-    label: '③ note記事画像・文字なし・16:9',
+    label: '③ note記事画像・16:9',
     role: 'note記事内の挿絵として使用',
     copyLabel: 'note記事画像プロンプトをコピー',
+    defaultVariant: 'noText',
   },
   {
     key: 'note_thumbnail',
     order: 4,
-    label: '④ noteサムネイル・文字あり・16:9',
-    role: 'noteのサムネイルとして使用',
+    label: '④ noteサムネイル・16:9',
+    role: 'noteのサムネイルとして使用（文字入り版を推奨）',
     copyLabel: 'noteサムネイルプロンプトをコピー',
+    defaultVariant: 'withText',
   },
   {
     key: 'wordpress_eyecatch',
     order: 5,
     label: '⑤ WordPressアイキャッチ・16:9',
-    role: 'WordPress記事のアイキャッチ画像として使用',
+    role: 'WordPress記事のアイキャッチ画像として使用（文字入り版を推奨）',
     copyLabel: 'WordPressアイキャッチプロンプトをコピー',
+    defaultVariant: 'withText',
   },
 ];
 
 const CIRCLED_NUM_MAP = { '①': 1, '②': 2, '③': 3, '④': 4, '⑤': 5 };
+
+// 各①〜⑤ブロック内で「文字入り版」「文字なし版」を示すサブ見出しの判定パターン
+const WITH_TEXT_SUBHEADING = /文字(入り|あり)/;
+const NO_TEXT_SUBHEADING = /文字なし/;
+const VARIANT_SUBHEADING_MAX_LEN = 24;
+
+/**
+ * ①〜⑤の各ブロック本文を、【文字入り版】【文字なし版】の2種類に分割する。
+ * GEM側の出力にサブ見出しが明示されている場合はそれに従って分割し、
+ * 明示されていない場合（従来形式）は、slotDefのdefaultVariantに従って
+ * 内容全体をどちらか一方の種別として扱う（後方互換性のため）。
+ * @param {string} text ①〜⑤いずれかのブロックの本文全体
+ * @param {'withText'|'noText'} defaultVariant
+ * @returns {{ withText: string, noText: string }}
+ */
+function splitPromptVariants(text, defaultVariant) {
+  if (!text || !text.trim()) return { withText: '', noText: '' };
+
+  const lines = text.split('\n');
+  const marks = [];
+  lines.forEach((line, idx) => {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.length > VARIANT_SUBHEADING_MAX_LEN) return;
+    if (NO_TEXT_SUBHEADING.test(trimmed)) {
+      marks.push({ idx, variant: 'noText' });
+    } else if (WITH_TEXT_SUBHEADING.test(trimmed)) {
+      marks.push({ idx, variant: 'withText' });
+    }
+  });
+
+  if (marks.length === 0) {
+    return defaultVariant === 'withText'
+      ? { withText: text.trim(), noText: '' }
+      : { noText: text.trim(), withText: '' };
+  }
+
+  const result = { withText: '', noText: '' };
+  for (let i = 0; i < marks.length; i++) {
+    const start = marks[i].idx + 1;
+    const end = i + 1 < marks.length ? marks[i + 1].idx : lines.length;
+    const chunk = lines
+      .slice(start, end)
+      .map((l) => l.trim())
+      .filter((l) => l && l !== '```text' && l !== '```' && !/^```/.test(l))
+      .join('\n')
+      .trim();
+    if (chunk) {
+      const v = marks[i].variant;
+      result[v] = result[v] ? `${result[v]}\n${chunk}` : chunk;
+    }
+  }
+  return result;
+}
 
 /**
  * 画像生成プロンプトのセクションを5つのサブセクション（①〜⑤）に分解する。
  * ①②③④⑤ または 1./2./3./4./5. の番号を「絶対的な位置」として扱い、
  * その番号順に5つの枠へ割り当てる（見出しの文言が多少変わっても壊れないようにするため）。
  * コードフェンス（```text ... ```）が使われている場合は中身だけを取り出す。
+ * さらに各ブロックの本文を、文字入り版／文字なし版の2種類に分割する。
  * @param {string} imageRaw
- * @returns {Record<string, string>} キー: tiktok_video, tiktok_thumbnail, note_image, note_thumbnail, wordpress_eyecatch
+ * @returns {Record<string, { withText: string, noText: string }>}
  */
 export function parseImagePrompts(imageRaw) {
-  const subResult = {
+  const rawSubResult = {
     tiktok_video: '',
     tiktok_thumbnail: '',
     note_image: '',
     note_thumbnail: '',
     wordpress_eyecatch: '',
   };
-  if (!imageRaw || !imageRaw.trim()) return subResult;
+
+  const finalize = () => {
+    const result = {};
+    for (const def of IMAGE_SUB_DEFS) {
+      result[def.key] = splitPromptVariants(rawSubResult[def.key], def.defaultVariant);
+    }
+    return result;
+  };
+
+  if (!imageRaw || !imageRaw.trim()) return finalize();
 
   const lines = imageRaw.replace(/\r\n/g, '\n').split('\n');
 
@@ -351,10 +422,10 @@ export function parseImagePrompts(imageRaw) {
         .trim();
 
       if (cleaned) {
-        subResult[key] = subResult[key] ? `${subResult[key]}\n${cleaned}` : cleaned;
+        rawSubResult[key] = rawSubResult[key] ? `${rawSubResult[key]}\n${cleaned}` : cleaned;
       }
     }
-    return subResult;
+    return finalize();
   }
 
   // フォールバック：番号が全く見つからない場合、コードフェンスの出現順で1〜5に割り当てる
@@ -363,10 +434,10 @@ export function parseImagePrompts(imageRaw) {
   let match;
   let i = 0;
   while ((match = fenceRegex.exec(imageRaw)) !== null && i < order.length) {
-    subResult[order[i]] = match[1].trim();
+    rawSubResult[order[i]] = match[1].trim();
     i++;
   }
-  return subResult;
+  return finalize();
 }
 
 export const SECTION_ORDER = [
