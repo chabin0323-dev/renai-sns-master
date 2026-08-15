@@ -6,10 +6,15 @@ import CopyAllBar from './components/CopyAllBar.jsx';
 import MultiFieldCard from './components/MultiFieldCard.jsx';
 import ImagePromptSection from './components/ImagePromptSection.jsx';
 import HistoryPanel from './components/HistoryPanel.jsx';
+import LinksPanel from './components/LinksPanel.jsx';
+import NoteLinkBlock from './components/NoteLinkBlock.jsx';
+import SocialLinkBlock from './components/SocialLinkBlock.jsx';
 import Toast from './components/Toast.jsx';
 import VideoMaker from './components/VideoMaker.jsx';
 import { usePostHistory } from './hooks/useLocalStorage.js';
+import { useLinks } from './hooks/useLinks.js';
 import { copyToClipboard } from './utils/clipboard.js';
+import { calcXLength, calcThreadsLength, X_LIMIT, THREADS_LIMIT } from './utils/linkFit.js';
 import {
   parseSections,
   parseImagePrompts,
@@ -21,7 +26,6 @@ import './App.css';
 const EMPTY_IMAGE_PROMPTS = {
   tiktok_video: { withText: '', noText: '' },
   tiktok_thumbnail: { withText: '', noText: '' },
-  note_image: { withText: '', noText: '' },
   note_thumbnail: { withText: '', noText: '' },
   wordpress_eyecatch: { withText: '', noText: '' },
 };
@@ -125,11 +129,9 @@ function buildCopyAllText(sections, imagePrompts) {
   const imageParts = [];
   for (const def of IMAGE_SUB_DEFS) {
     const slot = imagePrompts[def.key] || {};
-    if (slot.withText && slot.withText.trim()) {
-      imageParts.push(`${def.label}（📝文字入り版）\n${slot.withText.trim()}`);
-    }
-    if (slot.noText && slot.noText.trim()) {
-      imageParts.push(`${def.label}（🖼️文字なし版）\n${slot.noText.trim()}`);
+    const value = slot[def.activeVariant];
+    if (value && value.trim()) {
+      imageParts.push(`${def.label}\n${value.trim()}`);
     }
   }
   if (imageParts.length) {
@@ -149,9 +151,15 @@ export default function App() {
   // 恋愛バズ動画メーカー用の画面切り替え（既存のorganized等のstateパターンを踏襲）。
   // 'sns' = 通常の投稿マスター画面 / 'video' = 動画メーカー画面
   const [activeView, setActiveView] = useState('sns');
+  // 共通リンク管理パネルの開閉、および note/X/Threads それぞれで選択中のリンクID
+  const [linksOpen, setLinksOpen] = useState(false);
+  const [noteLinkId, setNoteLinkId] = useState('none');
+  const [xLinkId, setXLinkId] = useState('none');
+  const [threadsLinkId, setThreadsLinkId] = useState('none');
   const toastTimer = useRef(null);
 
   const { history, savePost, deletePost, clearHistory } = usePostHistory();
+  const { links, updateLink } = useLinks();
 
   const showToast = useCallback((message) => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -185,6 +193,10 @@ export default function App() {
     setSections({ ...EMPTY_SECTIONS_TEMPLATE, ...restSections });
     setImagePrompts({ ...EMPTY_IMAGE_PROMPTS, ...images });
     setOrganized(true);
+    // 新しい投稿を整理したら、前回選択していたリンクをリセットする
+    setNoteLinkId('none');
+    setXLinkId('none');
+    setThreadsLinkId('none');
     showToast('✨ 投稿を整理しました');
   }, [rawInput, showToast]);
 
@@ -214,11 +226,9 @@ export default function App() {
     const parts = [];
     for (const def of IMAGE_SUB_DEFS) {
       const slot = imagePrompts[def.key] || {};
-      if (slot.withText && slot.withText.trim()) {
-        parts.push(`${def.label}（📝文字入り版）\n${slot.withText.trim()}`);
-      }
-      if (slot.noText && slot.noText.trim()) {
-        parts.push(`${def.label}（🖼️文字なし版）\n${slot.noText.trim()}`);
+      const value = slot[def.activeVariant];
+      if (value && value.trim()) {
+        parts.push(`${def.label}\n${value.trim()}`);
       }
     }
     const text = parts.join('\n\n');
@@ -236,6 +246,20 @@ export default function App() {
     showToast(ok ? '📋 全部コピーしました' : '❌ コピーに失敗しました');
   }, [sections, imagePrompts, showToast]);
 
+  // 現在選択中のリンク情報（投稿履歴に保存する用）。「なし」の場合はnull。
+  const buildSelectedLinksSnapshot = useCallback(() => {
+    const pick = (id) => {
+      if (id === 'none') return null;
+      const link = links.find((l) => String(l.id) === String(id));
+      return link ? { id: link.id, name: link.name, url: link.url } : null;
+    };
+    return {
+      note: pick(noteLinkId),
+      x: pick(xLinkId),
+      threads: pick(threadsLinkId),
+    };
+  }, [links, noteLinkId, xLinkId, threadsLinkId]);
+
   const handleSave = useCallback(() => {
     const hasContent = Object.values(sections).some((v) => v && v.trim());
     if (!hasContent) {
@@ -245,18 +269,26 @@ export default function App() {
     savePost({
       theme: sections.theme,
       rawText: rawInput,
-      sections: { ...sections, __imagePrompts: imagePrompts },
+      sections: {
+        ...sections,
+        __imagePrompts: imagePrompts,
+        __selectedLinks: buildSelectedLinksSnapshot(),
+      },
     });
     showToast('💾 投稿履歴に保存しました');
-  }, [sections, imagePrompts, rawInput, savePost, showToast]);
+  }, [sections, imagePrompts, rawInput, savePost, showToast, buildSelectedLinksSnapshot]);
 
   const handleSelectHistory = useCallback((item) => {
     setRawInput(item.rawText || '');
     const saved = item.sections || {};
-    const { __imagePrompts, ...restSaved } = saved;
+    const { __imagePrompts, __selectedLinks, ...restSaved } = saved;
     setSections({ ...EMPTY_SECTIONS_TEMPLATE, ...restSaved });
     // 旧バージョンの履歴（imagePromptsが文字列形式）でも壊れないよう正規化する
     setImagePrompts(normalizeImagePromptsShape(__imagePrompts));
+    // 過去の投稿でどのリンクを使用していたかを復元する（未保存の古い履歴は「なし」扱い）
+    setNoteLinkId(__selectedLinks?.note?.id ? String(__selectedLinks.note.id) : 'none');
+    setXLinkId(__selectedLinks?.x?.id ? String(__selectedLinks.x.id) : 'none');
+    setThreadsLinkId(__selectedLinks?.threads?.id ? String(__selectedLinks.threads.id) : 'none');
     setOrganized(true);
     setHistoryOpen(false);
     showToast('📚 過去の投稿を読み込みました');
@@ -272,6 +304,13 @@ export default function App() {
   }, []);
 
   const handleVideoCopy = useCallback(async (text, label) => {
+    const ok = await copyToClipboard(text);
+    showToast(ok ? `📋 ${label}をコピーしました` : '❌ コピーに失敗しました');
+  }, [showToast]);
+
+  // --- 共通リンク関連（追加分。既存ロジックには影響しない） ---
+  const handleCopyLinkField = useCallback(async (text, label) => {
+    if (!text) return;
     const ok = await copyToClipboard(text);
     showToast(ok ? `📋 ${label}をコピーしました` : '❌ コピーに失敗しました');
   }, [showToast]);
@@ -322,6 +361,42 @@ export default function App() {
     { key: 'note_hashtags', label: '【noteハッシュタグ】', value: sections.note_hashtags, copyText: 'ハッシュタグコピー', rows: 2 },
   ];
 
+  // note/X/Threadsの「リンク利用」拡張ブロック（共通リンクを参照するだけで、既存の
+  // フィールド・コピー機能・GEM出力そのものには一切手を加えない）
+  const noteExtraBlock = (
+    <NoteLinkBlock
+      links={links}
+      selectedId={noteLinkId}
+      onSelect={setNoteLinkId}
+      onCopyName={(name) => handleCopyLinkField(name, 'リンク名')}
+      onCopyUrl={(url) => handleCopyLinkField(url, 'URL')}
+    />
+  );
+
+  const xExtraBlock = (
+    <SocialLinkBlock
+      links={links}
+      selectedId={xLinkId}
+      onSelect={setXLinkId}
+      body={sections.x}
+      limit={X_LIMIT}
+      lengthFn={calcXLength}
+      onCopyFinal={(text) => handleCopyLinkField(text, 'リンク付き投稿文')}
+    />
+  );
+
+  const threadsExtraBlock = (
+    <SocialLinkBlock
+      links={links}
+      selectedId={threadsLinkId}
+      onSelect={setThreadsLinkId}
+      body={sections.threads}
+      limit={THREADS_LIMIT}
+      lengthFn={calcThreadsLength}
+      onCopyFinal={(text) => handleCopyLinkField(text, 'リンク付き投稿文')}
+    />
+  );
+
   const wordpressFields = [
     { key: 'wordpress_seo_title', label: '【SEOタイトル】', value: sections.wordpress_seo_title, copyText: 'コピー', rows: 2 },
     { key: 'wordpress_article_title', label: '【記事タイトル】', value: sections.wordpress_article_title, copyText: 'コピー', rows: 2 },
@@ -333,7 +408,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <Header onOpenHistory={() => setHistoryOpen(true)} historyCount={history.length} />
+      <Header onOpenHistory={() => setHistoryOpen(true)} historyCount={history.length} onOpenLinks={() => setLinksOpen(true)} />
 
       {activeView === 'sns' && (
         <>
@@ -378,6 +453,7 @@ export default function App() {
                     fields={xFields}
                     onChangeField={updateField}
                     onCopyField={handleCopyField}
+                    extraBlock={xExtraBlock}
                   />
                   <MultiFieldCard
                     label="Threads"
@@ -385,6 +461,7 @@ export default function App() {
                     fields={threadsFields}
                     onChangeField={updateField}
                     onCopyField={handleCopyField}
+                    extraBlock={threadsExtraBlock}
                   />
                   <MultiFieldCard
                     label="note"
@@ -392,6 +469,7 @@ export default function App() {
                     fields={noteFields}
                     onChangeField={updateField}
                     onCopyField={handleCopyField}
+                    extraBlock={noteExtraBlock}
                   />
                   <MultiFieldCard
                     label="WordPress"
@@ -437,6 +515,14 @@ export default function App() {
           clearHistory();
           showToast('🗑️ 履歴をすべて削除しました');
         }}
+      />
+
+      <LinksPanel
+        open={linksOpen}
+        links={links}
+        onUpdateLink={updateLink}
+        onClose={() => setLinksOpen(false)}
+        onCopied={showToast}
       />
 
       <Toast message={toast.message} visible={toast.visible} />
