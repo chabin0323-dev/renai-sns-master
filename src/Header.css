@@ -1,0 +1,120 @@
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 28px 20px 20px;
+  max-width: 880px;
+  margin: 0 auto;
+  position: relative;
+}
+
+.app-header__crest {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+}
+
+.app-header__diamond {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.app-header__diamond polygon:first-child {
+  fill: none;
+  stroke: var(--gold);
+  stroke-width: 1.4;
+}
+
+.app-header__diamond-inner {
+  fill: var(--gold);
+  filter: drop-shadow(0 0 6px rgba(236, 202, 130, 0.55));
+}
+
+.app-header__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.app-header__title {
+  font-size: clamp(22px, 5vw, 30px);
+  color: var(--gold-bright);
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.app-header__desc {
+  margin-top: 6px;
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.app-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.app-header__links-btn {
+  flex-shrink: 0;
+  background: var(--bg-soft);
+  border: 1px solid var(--card-border);
+  color: var(--text);
+  padding: 10px 16px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  transition: border-color 0.2s ease, transform 0.15s ease;
+}
+
+.app-header__links-btn:hover {
+  border-color: var(--gold);
+  transform: translateY(-1px);
+}
+
+.app-header__history-btn {
+  position: relative;
+  flex-shrink: 0;
+  background: var(--bg-soft);
+  border: 1px solid var(--card-border);
+  color: var(--text);
+  padding: 10px 16px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  transition: border-color 0.2s ease, transform 0.15s ease;
+}
+
+.app-header__history-btn:hover {
+  border-color: var(--gold);
+  transform: translateY(-1px);
+}
+
+.app-header__badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: var(--rose);
+  color: #201319;
+  font-size: 11px;
+  font-weight: 900;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 640px) {
+  .app-header {
+    flex-wrap: wrap;
+    padding: 22px 16px 16px;
+  }
+  .app-header__actions {
+    margin-left: auto;
+  }
+}
