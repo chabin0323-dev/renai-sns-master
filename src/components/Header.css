@@ -50,6 +50,30 @@
   line-height: 1.6;
 }
 
+.app-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.app-header__links-btn {
+  flex-shrink: 0;
+  background: var(--bg-soft);
+  border: 1px solid var(--card-border);
+  color: var(--text);
+  padding: 10px 16px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  transition: border-color 0.2s ease, transform 0.15s ease;
+}
+
+.app-header__links-btn:hover {
+  border-color: var(--gold);
+  transform: translateY(-1px);
+}
+
 .app-header__history-btn {
   position: relative;
   flex-shrink: 0;
@@ -90,7 +114,7 @@
     flex-wrap: wrap;
     padding: 22px 16px 16px;
   }
-  .app-header__history-btn {
+  .app-header__actions {
     margin-left: auto;
   }
 }

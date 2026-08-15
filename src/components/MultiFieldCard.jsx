@@ -8,7 +8,7 @@ import './MultiFieldCard.css';
  * 「🎬 この投稿でバズ動画を作る」ボタンを表示する。渡されなければ何も表示されない
  * ため、Instagram/X/Threads/note/WordPressなど他のカードの見た目には一切影響しない。
  */
-export default function MultiFieldCard({ label, icon, fields, onChangeField, onCopyField, videoAction }) {
+export default function MultiFieldCard({ label, icon, fields, onChangeField, onCopyField, videoAction, extraBlock }) {
   return (
     <article className="mf-card">
       <div className="mf-card__corner mf-card__corner--tl" aria-hidden="true" />
@@ -47,6 +47,8 @@ export default function MultiFieldCard({ label, icon, fields, onChangeField, onC
           );
         })}
       </div>
+
+      {extraBlock && <div className="mf-card__extra">{extraBlock}</div>}
 
       {videoAction && (
         <button

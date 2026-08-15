@@ -129,6 +129,10 @@
   color: var(--text-faint);
 }
 
+.mf-card__extra {
+  margin-top: 2px;
+}
+
 .mf-card__video-btn {
   margin-top: 4px;
   width: 100%;

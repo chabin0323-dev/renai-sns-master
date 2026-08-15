@@ -1,6 +1,6 @@
 import './Header.css';
 
-export default function Header({ onOpenHistory, historyCount }) {
+export default function Header({ onOpenHistory, historyCount, onOpenLinks }) {
   return (
     <header className="app-header">
       <div className="app-header__crest" aria-hidden="true">
@@ -15,10 +15,15 @@ export default function Header({ onOpenHistory, historyCount }) {
           GEMで作成した投稿を貼り付けるだけ。SNS投稿を整理して、すぐコピーできます。
         </p>
       </div>
-      <button className="app-header__history-btn" onClick={onOpenHistory} type="button">
-        📚 投稿履歴
-        {historyCount > 0 && <span className="app-header__badge">{historyCount}</span>}
-      </button>
+      <div className="app-header__actions">
+        <button className="app-header__links-btn" onClick={onOpenLinks} type="button">
+          🔗 リンク管理
+        </button>
+        <button className="app-header__history-btn" onClick={onOpenHistory} type="button">
+          📚 投稿履歴
+          {historyCount > 0 && <span className="app-header__badge">{historyCount}</span>}
+        </button>
+      </div>
     </header>
   );
 }
