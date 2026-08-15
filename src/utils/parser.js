@@ -225,46 +225,49 @@ export function parseSections(raw) {
 // 画像生成プロンプトの5つのサブセクション定義（役割・デフォルトの文字あり/なし種別つき）。
 // defaultVariant: GEM側の出力にまだ【文字入り版】【文字なし版】の明示的な区切りがない
 // 場合（従来形式の単一プロンプト）に、その内容をどちらの種別として扱うかを示す。
+// 画像生成プロンプトの表示項目定義（役割・サイズ・使用する種別つき）。
+// activeVariant: この項目で実際に使用・表示・コピー対象とする種別（'withText' または 'noText'）。
+// もう一方の種別はUI上に一切表示しない。
+// 【重要】③note記事画像は本一覧から意図的に除外している（項目自体を非表示にするため）。
+// パース処理自体（①→⑤の境界検出）には影響しない。境界検出は本配列とは独立した
+// 内部ロジック（orderKeyMap）で行っているため、③を除外してもGEM出力の④⑤の
+// 位置特定は壊れない。
 export const IMAGE_SUB_DEFS = [
   {
     key: 'tiktok_video',
     order: 1,
-    label: '① TikTok動画素材・9:16',
-    role: 'CapCutで動画素材として使用（文字なし版を推奨）',
+    label: '① TikTok動画素材・9:16（1080×1920px）',
+    role: 'CapCutで動画素材として使用',
     copyLabel: 'TikTok動画素材プロンプトをコピー',
-    defaultVariant: 'noText',
+    activeVariant: 'noText',
+    variantLabel: '文字なし版',
   },
   {
     key: 'tiktok_thumbnail',
     order: 2,
-    label: '② TikTokサムネイル・9:16',
-    role: 'TikTokのサムネイルとして使用（文字入り版を推奨）',
+    label: '② TikTokサムネイル・9:16（1080×1920px）',
+    role: 'TikTokのサムネイルとして使用',
     copyLabel: 'TikTokサムネイルプロンプトをコピー',
-    defaultVariant: 'withText',
-  },
-  {
-    key: 'note_image',
-    order: 3,
-    label: '③ note記事画像・16:9',
-    role: 'note記事内の挿絵として使用',
-    copyLabel: 'note記事画像プロンプトをコピー',
-    defaultVariant: 'noText',
+    activeVariant: 'withText',
+    variantLabel: '文字入り版',
   },
   {
     key: 'note_thumbnail',
     order: 4,
-    label: '④ noteサムネイル・16:9',
-    role: 'noteのサムネイルとして使用（文字入り版を推奨）',
+    label: '④ noteサムネイル・16:9（1280×720px）',
+    role: 'noteのサムネイルとして使用',
     copyLabel: 'noteサムネイルプロンプトをコピー',
-    defaultVariant: 'withText',
+    activeVariant: 'withText',
+    variantLabel: '文字入り版',
   },
   {
     key: 'wordpress_eyecatch',
     order: 5,
-    label: '⑤ WordPressアイキャッチ・16:9',
-    role: 'WordPress記事のアイキャッチ画像として使用（文字入り版を推奨）',
+    label: '⑤ WordPressアイキャッチ・16:9（1280×720px）',
+    role: 'WordPress記事のアイキャッチ画像として使用',
     copyLabel: 'WordPressアイキャッチプロンプトをコピー',
-    defaultVariant: 'withText',
+    activeVariant: 'withText',
+    variantLabel: '文字入り版',
   },
 ];
 
@@ -344,7 +347,7 @@ export function parseImagePrompts(imageRaw) {
   const finalize = () => {
     const result = {};
     for (const def of IMAGE_SUB_DEFS) {
-      result[def.key] = splitPromptVariants(rawSubResult[def.key], def.defaultVariant);
+      result[def.key] = splitPromptVariants(rawSubResult[def.key], def.activeVariant);
     }
     return result;
   };
