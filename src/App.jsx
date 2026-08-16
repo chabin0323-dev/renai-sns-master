@@ -203,9 +203,12 @@ export default function App() {
 
   const handleClearInput = useCallback(() => {
     // 貼り付け欄のReact stateを確実に空文字にする。
-    // rawInputは自動保存（useEffect）の対象のため、この後すぐに空の状態で
-    // localStorageへ上書き保存され、再読み込みしても復活しない。
     setRawInput('');
+    // rawInputだけでなく、自動保存されている現在の作業データそのものも明示的に消去する。
+    // （直後にuseEffectがrawInput:''で上書き保存するが、ここで先にキー自体を削除しておく
+    // ことで、生成済みの他データも含めて意図が明確になる。sections/imagePromptsは
+    // useEffectにより直後に再保存されるため、投稿結果自体が消えることはない）
+    clearCurrentPost();
     showToast('🗑️ 前回の文章を削除しました');
   }, [showToast]);
 
