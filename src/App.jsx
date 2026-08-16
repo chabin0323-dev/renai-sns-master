@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Header from './components/Header.jsx';
 import InputPanel from './components/InputPanel.jsx';
 import QuickStartButton from './components/QuickStartButton.jsx';
@@ -13,6 +13,7 @@ import Toast from './components/Toast.jsx';
 import VideoMaker from './components/VideoMaker.jsx';
 import { usePostHistory } from './hooks/useLocalStorage.js';
 import { useLinks } from './hooks/useLinks.js';
+import { loadCurrentPost, saveCurrentPost, clearCurrentPost } from './hooks/useCurrentPost.js';
 import { copyToClipboard } from './utils/clipboard.js';
 import { calcXLength, calcThreadsLength, X_LIMIT, THREADS_LIMIT } from './utils/linkFit.js';
 import {
@@ -142,10 +143,20 @@ function buildCopyAllText(sections, imagePrompts) {
 }
 
 export default function App() {
-  const [rawInput, setRawInput] = useState('');
-  const [sections, setSections] = useState({ ...EMPTY_SECTIONS_TEMPLATE });
-  const [imagePrompts, setImagePrompts] = useState({ ...EMPTY_IMAGE_PROMPTS });
-  const [organized, setOrganized] = useState(false);
+  // 【自動保存の復元】アプリ起動時、前回の作業中データ（画面に表示されていた投稿）が
+  // localStorageに残っていれば、それを初期値として画面へ復元する。
+  // ユーザーが明示的に「💾 保存」を押していなくても、閉じる直前の状態がそのまま戻る。
+  const restoredCurrentPost = loadCurrentPost();
+
+  const [rawInput, setRawInput] = useState(restoredCurrentPost?.rawInput || '');
+  const [sections, setSections] = useState({
+    ...EMPTY_SECTIONS_TEMPLATE,
+    ...(restoredCurrentPost?.sections || {}),
+  });
+  const [imagePrompts, setImagePrompts] = useState(
+    normalizeImagePromptsShape(restoredCurrentPost?.imagePrompts)
+  );
+  const [organized, setOrganized] = useState(!!restoredCurrentPost?.organized);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [toast, setToast] = useState({ message: '', visible: false });
   // 恋愛バズ動画メーカー用の画面切り替え（既存のorganized等のstateパターンを踏襲）。
@@ -153,13 +164,29 @@ export default function App() {
   const [activeView, setActiveView] = useState('sns');
   // 共通リンク管理パネルの開閉、および note/X/Threads それぞれで選択中のリンクID
   const [linksOpen, setLinksOpen] = useState(false);
-  const [noteLinkId, setNoteLinkId] = useState('none');
-  const [xLinkId, setXLinkId] = useState('none');
-  const [threadsLinkId, setThreadsLinkId] = useState('none');
+  const [noteLinkId, setNoteLinkId] = useState(restoredCurrentPost?.noteLinkId || 'none');
+  const [xLinkId, setXLinkId] = useState(restoredCurrentPost?.xLinkId || 'none');
+  const [threadsLinkId, setThreadsLinkId] = useState(restoredCurrentPost?.threadsLinkId || 'none');
   const toastTimer = useRef(null);
 
   const { history, savePost, deletePost, clearHistory } = usePostHistory();
   const { links, updateLink } = useLinks();
+
+  // 【自動保存の実行】現在の作業状態が変化するたびに、localStorageへ自動保存する。
+  // ユーザーの「保存」操作を必要とせず、ページ再読み込み・アプリ終了後も復元できるようにする。
+  // 既存の「📚 投稿履歴」（usePostHistory）とは別のlocalStorageキーで管理しており、
+  // 保存方式を二重化するものではない。
+  useEffect(() => {
+    saveCurrentPost({
+      rawInput,
+      sections,
+      imagePrompts,
+      organized,
+      noteLinkId,
+      xLinkId,
+      threadsLinkId,
+    });
+  }, [rawInput, sections, imagePrompts, organized, noteLinkId, xLinkId, threadsLinkId]);
 
   const showToast = useCallback((message) => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -176,7 +203,8 @@ export default function App() {
 
   const handleClearInput = useCallback(() => {
     // 貼り付け欄のReact stateを確実に空文字にする。
-    // rawInputはどこにも自動永続化されていないため、再読み込みしても復活しない。
+    // rawInputは自動保存（useEffect）の対象のため、この後すぐに空の状態で
+    // localStorageへ上書き保存され、再読み込みしても復活しない。
     setRawInput('');
     showToast('🗑️ 前回の文章を削除しました');
   }, [showToast]);
