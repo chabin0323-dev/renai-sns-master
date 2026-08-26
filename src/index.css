@@ -26,6 +26,16 @@
   --accent-note: #6fcf9e;
   --accent-wordpress: #7fa6e0;
 
+  /* --- カード全体の背景色（各SNSアクセントカラーとカード基調色を混ぜた、
+     暗いトーンのまま色味だけ分かるようにした背景。文字の可読性を保つため
+     彩度・明度は控えめにしてある） --- */
+  --card-tiktok: #2a3c48;
+  --card-instagram: #442f44;
+  --card-x: #3d394b;
+  --card-threads: #3d324d;
+  --card-note: #303b41;
+  --card-wordpress: #33334c;
+
   /* --- Type ---
      外部フォント配信(Google Fonts等)への通信を完全に排除するため、
      OS標準搭載の日本語フォントのみで構成する。 */
