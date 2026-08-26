@@ -1,7 +1,8 @@
 .mf-card {
   position: relative;
-  background: var(--card);
-  border: 1px solid var(--card-border);
+  background: var(--card-tint, var(--card));
+  border: 1px solid var(--card-accent, var(--card-border));
+  border-left: 3px solid var(--card-accent, var(--gold-dim));
   border-radius: var(--radius-lg);
   padding: 20px;
   display: flex;
@@ -11,9 +12,18 @@
 }
 
 .mf-card:hover {
-  border-color: var(--card-border-hover);
+  border-color: var(--card-accent, var(--card-border-hover));
+  border-left-color: var(--card-accent, var(--gold-dim));
   box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
 }
+
+/* SNSごとの色分け（カード全体の背景色＋枠線＋タイトル色をまとめて切り替える） */
+.mf-card[data-accent='tiktok'] { --card-accent: var(--accent-tiktok); --card-tint: var(--card-tiktok); }
+.mf-card[data-accent='instagram'] { --card-accent: var(--accent-instagram); --card-tint: var(--card-instagram); }
+.mf-card[data-accent='x'] { --card-accent: var(--accent-x); --card-tint: var(--card-x); }
+.mf-card[data-accent='threads'] { --card-accent: var(--accent-threads); --card-tint: var(--card-threads); }
+.mf-card[data-accent='note'] { --card-accent: var(--accent-note); --card-tint: var(--card-note); }
+.mf-card[data-accent='wordpress'] { --card-accent: var(--accent-wordpress); --card-tint: var(--card-wordpress); }
 
 .mf-card__corner {
   position: absolute;
@@ -43,7 +53,7 @@
 .mf-card__title {
   font-size: 16px;
   font-weight: 900;
-  color: var(--gold-bright);
+  color: var(--card-accent, var(--gold-bright));
   display: flex;
   align-items: center;
   gap: 8px;
@@ -52,6 +62,10 @@
 
 .mf-card__icon {
   font-size: 17px;
+}
+
+.mf-card__corner {
+  border-color: var(--card-accent, var(--gold-dim));
 }
 
 .mf-card__fields {
