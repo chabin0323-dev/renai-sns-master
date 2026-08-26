@@ -16,6 +16,16 @@
   --danger: #d17d7d;
   --overlay: rgba(10, 6, 14, 0.72);
 
+  /* --- SNSごとのアクセントカラー（カードの色分け用） ---
+     全体のダーク×ゴールド×薔薇色のトーンを崩さない範囲で、
+     各SNSのブランドイメージを踏まえた控えめな色調にしている。 */
+  --accent-tiktok: #4fd6c8;
+  --accent-instagram: #e08fb0;
+  --accent-x: #b9c4d6;
+  --accent-threads: #b9a0e6;
+  --accent-note: #6fcf9e;
+  --accent-wordpress: #7fa6e0;
+
   /* --- Type ---
      外部フォント配信(Google Fonts等)への通信を完全に排除するため、
      OS標準搭載の日本語フォントのみで構成する。 */
