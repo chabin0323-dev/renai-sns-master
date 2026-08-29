@@ -134,7 +134,7 @@ parts.push('■ ' + SECTION_LABEL_MAP[key] + '\n' + body.trim());
     const slot = imagePrompts[def.key] || {};
     const value = slot[def.activeVariant];
     if (value && value.trim()) {
-      imageParts.push(`${def.label}\n${value.trim()}`);
+imageParts.push(def.label + '\n' + value.trim());
     }
   }
   if (imageParts.length) {
