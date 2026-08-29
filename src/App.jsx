@@ -119,7 +119,7 @@ function buildCopyAllText(sections, imagePrompts) {
     if (key === '__wordpress__') {
       const wpBlock = buildWordpressBlock(sections);
       if (wpBlock.trim()) {
-        parts.push(`■ WordPress\n${wpBlock}`);
+parts.push('■ WordPress\n' + wpBlock);
       }
       continue;
     }
