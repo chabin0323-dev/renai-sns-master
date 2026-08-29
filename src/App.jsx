@@ -1,3 +1,4 @@
+```jsx
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Header from './components/Header.jsx';
 import InputPanel from './components/InputPanel.jsx';
@@ -16,6 +17,7 @@ import { useLinks } from './hooks/useLinks.js';
 import { loadCurrentPost, saveCurrentPost, clearCurrentPost } from './hooks/useCurrentPost.js';
 import { copyToClipboard } from './utils/clipboard.js';
 import { calcXLength, calcThreadsLength, X_LIMIT, THREADS_LIMIT } from './utils/linkFit.js';
+import { toWordPressHeadings } from './utils/wordpressHeadings.js';
 import {
   parseSections,
   parseImagePrompts,
@@ -100,7 +102,7 @@ function buildWordpressBlock(sections) {
     ['記事タイトル', sections.wordpress_article_title],
     ['メタディスクリプション', sections.wordpress_meta_description],
     ['キーワード', sections.wordpress_keywords],
-    ['本文', sections.wordpress_body],
+    ['本文', toWordPressHeadings(sections.wordpress_body)],
     ['CTA', sections.wordpress_cta],
   ];
   for (const [label, value] of wpFields) {
@@ -243,7 +245,11 @@ export default function App() {
   }, []);
 
   const handleCopyField = useCallback(async (key, label) => {
-    const ok = await copyToClipboard(sections[key]);
+    const value =
+      key === 'wordpress_body'
+        ? toWordPressHeadings(sections.wordpress_body)
+        : sections[key];
+    const ok = await copyToClipboard(value);
     showToast(ok ? `📋 ${label}をコピーしました` : '❌ コピーに失敗しました');
   }, [sections, showToast]);
 
@@ -560,3 +566,4 @@ export default function App() {
     </div>
   );
 }
+```
