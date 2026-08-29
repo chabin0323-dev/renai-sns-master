@@ -250,7 +250,7 @@ export default function App() {
         ? toWordPressHeadings(sections.wordpress_body)
         : sections[key];
     const ok = await copyToClipboard(value);
-    showToast(ok ? `📋 ${label}をコピーしました` : '❌ コピーに失敗しました');
+showToast(ok ? '📋 ' + label + 'をコピーしました' : '❌ コピーに失敗しました');
   }, [sections, showToast]);
 
   const handleCopyImageSub = useCallback(async (key, variant, label) => {
