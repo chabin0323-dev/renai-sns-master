@@ -1,4 +1,3 @@
-```jsx
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Header from './components/Header.jsx';
 import InputPanel from './components/InputPanel.jsx';
@@ -107,7 +106,7 @@ function buildWordpressBlock(sections) {
   ];
   for (const [label, value] of wpFields) {
     if (value && value.trim()) {
-parts.push('【' + label + '】\n' + value.trim());
+      parts.push('【' + label + '】\n' + value.trim());
     }
   }
   return parts.join('\n\n');
@@ -119,13 +118,13 @@ function buildCopyAllText(sections, imagePrompts) {
     if (key === '__wordpress__') {
       const wpBlock = buildWordpressBlock(sections);
       if (wpBlock.trim()) {
-parts.push('■ WordPress\n' + wpBlock);
+        parts.push('■ WordPress\n' + wpBlock);
       }
       continue;
     }
     const body = sections[key];
     if (body && body.trim()) {
-parts.push('■ ' + SECTION_LABEL_MAP[key] + '\n' + body.trim());
+      parts.push('■ ' + SECTION_LABEL_MAP[key] + '\n' + body.trim());
     }
   }
 
@@ -134,11 +133,11 @@ parts.push('■ ' + SECTION_LABEL_MAP[key] + '\n' + body.trim());
     const slot = imagePrompts[def.key] || {};
     const value = slot[def.activeVariant];
     if (value && value.trim()) {
-imageParts.push(def.label + '\n' + value.trim());
+      imageParts.push(def.label + '\n' + value.trim());
     }
   }
   if (imageParts.length) {
-parts.push('■ 画像生成プロンプト\n\n' + imageParts.join('\n\n'));
+    parts.push('■ 画像生成プロンプト\n\n' + imageParts.join('\n\n'));
   }
 
   return parts.join('\n\n' + '─'.repeat(20) + '\n\n');
@@ -250,13 +249,13 @@ export default function App() {
         ? toWordPressHeadings(sections.wordpress_body)
         : sections[key];
     const ok = await copyToClipboard(value);
-showToast(ok ? '📋 ' + label + 'をコピーしました' : '❌ コピーに失敗しました');
+    showToast(ok ? '📋 ' + label + 'をコピーしました' : '❌ コピーに失敗しました');
   }, [sections, showToast]);
 
   const handleCopyImageSub = useCallback(async (key, variant, label) => {
     const value = imagePrompts[key]?.[variant] || '';
     const ok = await copyToClipboard(value);
- showToast(ok ? '📋 ' + label + 'をコピーしました' : '❌ コピーに失敗しました');
+    showToast(ok ? '📋 ' + label + 'をコピーしました' : '❌ コピーに失敗しました');
   }, [imagePrompts, showToast]);
 
   const handleCopyAllImagePrompts = useCallback(async () => {
@@ -265,7 +264,7 @@ showToast(ok ? '📋 ' + label + 'をコピーしました' : '❌ コピーに�
       const slot = imagePrompts[def.key] || {};
       const value = slot[def.activeVariant];
       if (value && value.trim()) {
-parts.push(def.label + '\n' + value.trim());
+        parts.push(def.label + '\n' + value.trim());
       }
     }
     const text = parts.join('\n\n');
@@ -342,14 +341,14 @@ parts.push(def.label + '\n' + value.trim());
 
   const handleVideoCopy = useCallback(async (text, label) => {
     const ok = await copyToClipboard(text);
-    showToast(ok ? `📋 ${label}をコピーしました` : '❌ コピーに失敗しました');
+    showToast(ok ? '📋 ' + label + 'をコピーしました' : '❌ コピーに失敗しました');
   }, [showToast]);
 
   // --- 共通リンク関連（追加分。既存ロジックには影響しない） ---
   const handleCopyLinkField = useCallback(async (text, label) => {
     if (!text) return;
     const ok = await copyToClipboard(text);
-    showToast(ok ? `📋 ${label}をコピーしました` : '❌ コピーに失敗しました');
+    showToast(ok ? '📋 ' + label + 'をコピーしました' : '❌ コピーに失敗しました');
   }, [showToast]);
 
   // SNS投稿マスターの既存stateから、動画メーカーに必要なデータだけを取り出す。
@@ -566,4 +565,3 @@ parts.push(def.label + '\n' + value.trim());
     </div>
   );
 }
-```
