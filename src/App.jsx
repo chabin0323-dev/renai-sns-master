@@ -471,6 +471,7 @@ export default function App() {
                   <MultiFieldCard
                     label="TikTok"
                     icon="🎵"
+                    accent="tiktok"
                     fields={tiktokFields}
                     onChangeField={updateField}
                     onCopyField={handleCopyField}
@@ -479,6 +480,7 @@ export default function App() {
                   <MultiFieldCard
                     label="Instagram"
                     icon="📸"
+                    accent="instagram"
                     fields={instagramFields}
                     onChangeField={updateField}
                     onCopyField={handleCopyField}
@@ -486,6 +488,7 @@ export default function App() {
                   <MultiFieldCard
                     label="X"
                     icon="𝕏"
+                    accent="x"
                     fields={xFields}
                     onChangeField={updateField}
                     onCopyField={handleCopyField}
@@ -494,6 +497,7 @@ export default function App() {
                   <MultiFieldCard
                     label="Threads"
                     icon="🧵"
+                    accent="threads"
                     fields={threadsFields}
                     onChangeField={updateField}
                     onCopyField={handleCopyField}
