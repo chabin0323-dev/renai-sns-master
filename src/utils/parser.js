@@ -49,10 +49,15 @@ const SECTION_DEFS = [
   { key: 'image', aliases: ['画像生成用プロンプト', '画像生成プロンプト', '画像プロンプト'] },
 ];
 
-// 画像プロンプトのサブ見出し（「① TikTok動画素材・文字なし・9:16」等）や
-// 旧形式の「TikTok用（縦型 9:16）」「1. 文字なし」等は、
+// 画像プロンプトの区切り（「①」「【画像①】」等）そのもの。
+// GEM側の出力に親見出し「【画像生成プロンプト】」が省略されるケースがあるため、
+// この区切りを検出した時点で単独でも image セクションの開始とみなす。
+const IMAGE_SUBHEADING_START = /^[【\[]?\s*(?:画像)?\s*[①②③④⑤]/;
+
+// 上記以外の画像サブ見出し（「① TikTok動画素材・文字なし・9:16」の残り部分や
+// 旧形式の「TikTok用（縦型 9:16）」「1. 文字なし」等）は、
 // 主要セクション見出しとして誤検出しないよう除外する
-const IMAGE_SUBHEADING_EXCLUDE = /文字なし|文字あり|縦型|横型|アイキャッチ|動画素材|サムネイル|記事画像|^[①②③④⑤]|^[1-5][\.\)]|ar\s*9:16|ar\s*16:9|9:16|16:9/;
+const IMAGE_SUBHEADING_EXCLUDE = /文字なし|文字あり|縦型|横型|アイキャッチ|動画素材|サムネイル|記事画像|^[1-5][\.\)]|ar\s*9:16|ar\s*16:9|9:16|16:9/;
 
 function splitHeadingAndValue(rawLine) {
   // 「【選定テーマ】：値」のように、コロンより前を見出し候補、
@@ -74,6 +79,9 @@ function matchSectionHeading(rawLine) {
   // 「#Threads」「#TikTok」「#Instagram」「#X」のようにセクション名を含む
   // ハッシュタグが本文中に現れても誤検出しないようにするための重要なガード。
   if (/#[^\s#　]+/.test(trimmed)) return null;
+
+  // 「①」「【画像①】」等は、親見出しの有無に関わらずimageセクションの開始として扱う
+  if (IMAGE_SUBHEADING_START.test(trimmed)) return 'image';
 
   if (IMAGE_SUBHEADING_EXCLUDE.test(trimmed)) return null;
 
@@ -200,6 +208,11 @@ export function parseSections(raw) {
       currentKey = headingKey;
       const inline = extractInlineValue(rawLine);
       if (inline) buffer.push(inline);
+      // 「①」「【画像①】」等の画像サブ見出し行は、通常の見出しと違い
+      // parseImagePrompts側が区切りの目印として必要とするため、行自体も保持する。
+      if (headingKey === 'image' && IMAGE_SUBHEADING_START.test(rawLine.trim())) {
+        buffer.push(rawLine);
+      }
       continue;
     }
     if (currentKey) {
@@ -228,10 +241,10 @@ export function parseSections(raw) {
 // 画像生成プロンプトの表示項目定義（役割・サイズ・使用する種別つき）。
 // activeVariant: この項目で実際に使用・表示・コピー対象とする種別（'withText' または 'noText'）。
 // もう一方の種別はUI上に一切表示しない。
-// 【重要】③note記事画像は本一覧から意図的に除外している（項目自体を非表示にするため）。
+// 【重要】③note記事画像も他の項目と同様に一覧へ表示する（以前は意図的に除外していたが、
+// ③をnoteのトップ画像として活用するため表示対象に追加した）。
 // パース処理自体（①→⑤の境界検出）には影響しない。境界検出は本配列とは独立した
-// 内部ロジック（orderKeyMap）で行っているため、③を除外してもGEM出力の④⑤の
-// 位置特定は壊れない。
+// 内部ロジック（orderKeyMap）で行っている。
 export const IMAGE_SUB_DEFS = [
   {
     key: 'tiktok_video',
@@ -248,6 +261,15 @@ export const IMAGE_SUB_DEFS = [
     label: '② TikTokサムネイル・9:16（1080×1920px）',
     role: 'TikTokのサムネイルとして使用',
     copyLabel: 'TikTokサムネイルプロンプトをコピー',
+    activeVariant: 'withText',
+    variantLabel: '文字入り版',
+  },
+  {
+    key: 'note_image',
+    order: 3,
+    label: '③ note記事画像・16:9（1280×720px）',
+    role: 'note記事のトップ画像として使用',
+    copyLabel: 'note記事画像プロンプトをコピー',
     activeVariant: 'withText',
     variantLabel: '文字入り版',
   },
@@ -361,7 +383,9 @@ export function parseImagePrompts(imageRaw) {
   lines.forEach((line, idx) => {
     const trimmed = line.trim();
     if (!trimmed) return;
-    const circled = trimmed.match(/^([①②③④⑤])/);
+    // 「①...」のような単独表記だけでなく、「【画像①】」のような大かっこ付き表記も
+    // 区切りとして認識する（【・画像は任意なので、従来のbare表記も引き続き一致する）。
+    const circled = trimmed.match(/^[【\[]?\s*(?:画像)?\s*([①②③④⑤])/);
     if (circled) {
       rawBoundaries.push({ idx, num: CIRCLED_NUM_MAP[circled[1]] });
       return;
