@@ -256,7 +256,7 @@ showToast(ok ? '📋 ' + label + 'をコピーしました' : '❌ コピーに�
   const handleCopyImageSub = useCallback(async (key, variant, label) => {
     const value = imagePrompts[key]?.[variant] || '';
     const ok = await copyToClipboard(value);
-    showToast(ok ? `📋 ${label}をコピーしました` : '❌ コピーに失敗しました');
+ showToast(ok ? '📋 ' + label + 'をコピーしました' : '❌ コピーに失敗しました');
   }, [imagePrompts, showToast]);
 
   const handleCopyAllImagePrompts = useCallback(async () => {
