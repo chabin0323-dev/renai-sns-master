@@ -107,7 +107,7 @@ function buildWordpressBlock(sections) {
   ];
   for (const [label, value] of wpFields) {
     if (value && value.trim()) {
-      parts.push(`【${label}】\n${value.trim()}`);
+parts.push('【' + label + '】\n' + value.trim());
     }
   }
   return parts.join('\n\n');
