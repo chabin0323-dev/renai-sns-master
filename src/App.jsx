@@ -265,7 +265,7 @@ showToast(ok ? '📋 ' + label + 'をコピーしました' : '❌ コピーに�
       const slot = imagePrompts[def.key] || {};
       const value = slot[def.activeVariant];
       if (value && value.trim()) {
-        parts.push(`${def.label}\n${value.trim()}`);
+parts.push(def.label + '\n' + value.trim());
       }
     }
     const text = parts.join('\n\n');
