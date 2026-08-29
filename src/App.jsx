@@ -460,3 +460,86 @@ export default function App() {
                     fields={instagramFields}
                     onChangeField={updateField}
                     onCopyField={handleCopyField}
+                  />
+                  <MultiFieldCard
+                    label="X"
+                    icon="𝕏"
+                    accent="x"
+                    fields={xFields}
+                    onChangeField={updateField}
+                    onCopyField={handleCopyField}
+                  />
+                  <MultiFieldCard
+                    label="Threads"
+                    icon="🧵"
+                    accent="threads"
+                    fields={threadsFields}
+                    onChangeField={updateField}
+                    onCopyField={handleCopyField}
+                  />
+                  <MultiFieldCard
+                    label="note"
+                    icon="📝"
+                    fields={noteFields}
+                    onChangeField={updateField}
+                    onCopyField={handleCopyField}
+                    extraBlock={noteExtraBlock}
+                  />
+                  <MultiFieldCard
+                    label="WordPress"
+                    icon="🌐"
+                    fields={wordpressFields}
+                    onChangeField={updateField}
+                    onCopyField={handleCopyField}
+                  />
+
+                  <ImagePromptSection
+                    prompts={imagePrompts}
+                    onChangeSub={updateImageSub}
+                    onCopySub={handleCopyImageSub}
+                    onCopyAllPrompts={handleCopyAllImagePrompts}
+                  />
+                </div>
+              </main>
+            </>
+          )}
+
+          {!organized && (
+            <div className="app__empty">
+              <p>💎 GEMで生成した投稿を貼り付けて「投稿を整理する」を押すと、ここにSNSごとの投稿カードが並びます。</p>
+            </div>
+          )}
+        </>
+      )}
+
+      {activeView === 'video' && (
+        <VideoMaker data={videoSourceData} onBack={handleBackToSns} onCopy={handleVideoCopy} />
+      )}
+
+      <HistoryPanel
+        open={historyOpen}
+        history={history}
+        onClose={() => setHistoryOpen(false)}
+        onSelect={handleSelectHistory}
+        onDelete={(id) => {
+          deletePost(id);
+          showToast('🗑️ 削除しました');
+        }}
+        onClearAll={() => {
+          clearHistory();
+          showToast('🗑️ 履歴をすべて削除しました');
+        }}
+      />
+
+      <LinksPanel
+        open={linksOpen}
+        links={links}
+        onUpdateLink={updateLink}
+        onClose={() => setLinksOpen(false)}
+        onCopied={showToast}
+      />
+
+      <Toast message={toast.message} visible={toast.visible} />
+    </div>
+  );
+}
