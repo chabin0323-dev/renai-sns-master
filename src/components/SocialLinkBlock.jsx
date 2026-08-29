@@ -2,16 +2,15 @@ import { useMemo } from 'react';
 import { fitPostWithLink } from '../utils/linkFit.js';
 import './SocialLinkBlock.css';
 
+// プルダウン選択はなくし、常に①番目に登録されたリンクを自動で使用する。
 export default function SocialLinkBlock({
   links,
-  selectedId,
-  onSelect,
   body,
   limit,
   lengthFn,
   onCopyFinal,
 }) {
-  const selected = selectedId === 'none' ? null : links.find((l) => String(l.id) === String(selectedId));
+  const selected = links[0] || null;
 
   const result = useMemo(
     () => fitPostWithLink({ body, url: selected?.url || '', limit, lengthFn }),
@@ -22,18 +21,6 @@ export default function SocialLinkBlock({
     <div className="social-link-block">
       <div className="social-link-block__header">
         <span className="social-link-block__label">🔗 相性診断への誘導リンク</span>
-        <select
-          className="social-link-block__select"
-          value={selectedId}
-          onChange={(e) => onSelect(e.target.value)}
-        >
-          <option value="none">なし</option>
-          {links.map((link, idx) => (
-            <option key={link.id} value={link.id}>
-              {['①', '②', '③', '④', '⑤'][idx]} {link.name || '（名前未設定）'}
-            </option>
-          ))}
-        </select>
       </div>
 
       {selected && (
