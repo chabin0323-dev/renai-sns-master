@@ -25,6 +25,43 @@
 .mf-card[data-accent='note'] { --card-accent: var(--accent-note); --card-tint: var(--card-note); }
 .mf-card[data-accent='wordpress'] { --card-accent: var(--accent-wordpress); --card-tint: var(--card-wordpress); }
 
+/* --- スクロール中の視認性強化（TikTok/Instagram/X/Threadsのみ対象） ---
+   note/WordPressカードのスタイルには一切影響しない。 */
+.mf-card[data-accent='tiktok'],
+.mf-card[data-accent='instagram'],
+.mf-card[data-accent='x'],
+.mf-card[data-accent='threads'] {
+  position: relative;
+  border-width: 2px;
+  border-left-width: 2px;
+  overflow: hidden;
+}
+
+.mf-card[data-accent='tiktok']::before,
+.mf-card[data-accent='instagram']::before,
+.mf-card[data-accent='x']::before,
+.mf-card[data-accent='threads']::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  background: var(--card-top-bar, var(--card-accent));
+}
+
+/* TikTok・Instagramは単色よりブランドを想起しやすいグラデーションを上部ラインに使用 */
+.mf-card[data-accent='tiktok'] { --card-top-bar: linear-gradient(90deg, #25f4ee, #fe2c55); }
+.mf-card[data-accent='instagram'] { --card-top-bar: linear-gradient(90deg, #833ab4, #e1306c, #fd8d4c); }
+
+.mf-card[data-accent='tiktok'] .mf-card__title,
+.mf-card[data-accent='instagram'] .mf-card__title,
+.mf-card[data-accent='x'] .mf-card__title,
+.mf-card[data-accent='threads'] .mf-card__title {
+  font-size: 17px;
+  font-weight: 900;
+}
+
 .mf-card__corner {
   position: absolute;
   width: 26px;
