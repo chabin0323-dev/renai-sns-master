@@ -125,7 +125,7 @@ parts.push('■ WordPress\n' + wpBlock);
     }
     const body = sections[key];
     if (body && body.trim()) {
-      parts.push(`■ ${SECTION_LABEL_MAP[key]}\n${body.trim()}`);
+parts.push('■ ' + SECTION_LABEL_MAP[key] + '\n' + body.trim());
     }
   }
 
