@@ -138,7 +138,7 @@ imageParts.push(def.label + '\n' + value.trim());
     }
   }
   if (imageParts.length) {
-    parts.push(`■ 画像生成プロンプト\n\n${imageParts.join('\n\n')}`);
+parts.push('■ 画像生成プロンプト\n\n' + imageParts.join('\n\n'));
   }
 
   return parts.join('\n\n' + '─'.repeat(20) + '\n\n');
