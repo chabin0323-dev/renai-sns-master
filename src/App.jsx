@@ -8,14 +8,13 @@ import ImagePromptSection from './components/ImagePromptSection.jsx';
 import HistoryPanel from './components/HistoryPanel.jsx';
 import LinksPanel from './components/LinksPanel.jsx';
 import NoteLinkBlock from './components/NoteLinkBlock.jsx';
-import SocialLinkBlock from './components/SocialLinkBlock.jsx';
 import Toast from './components/Toast.jsx';
 import VideoMaker from './components/VideoMaker.jsx';
 import { usePostHistory } from './hooks/useLocalStorage.js';
 import { useLinks } from './hooks/useLinks.js';
 import { loadCurrentPost, saveCurrentPost, clearCurrentPost } from './hooks/useCurrentPost.js';
 import { copyToClipboard } from './utils/clipboard.js';
-import { calcXLength, calcThreadsLength, X_LIMIT, THREADS_LIMIT } from './utils/linkFit.js';
+import { calcXLength, calcThreadsLength, X_LIMIT, THREADS_LIMIT, fitPostWithLink } from './utils/linkFit.js';
 import { toWordPressHeadings } from './utils/wordpressHeadings.js';
 import {
   parseSections,
@@ -28,6 +27,7 @@ import './App.css';
 const EMPTY_IMAGE_PROMPTS = {
   tiktok_video: { withText: '', noText: '' },
   tiktok_thumbnail: { withText: '', noText: '' },
+  note_image: { withText: '', noText: '' },
   note_thumbnail: { withText: '', noText: '' },
   wordpress_eyecatch: { withText: '', noText: '' },
 };
@@ -44,7 +44,7 @@ function normalizeImagePromptsShape(raw) {
       result[key] = { withText: v.withText || '', noText: v.noText || '' };
     } else if (typeof v === 'string' && v.trim()) {
       // 旧形式（文字列1本）は、従来どおり主に使われていた種別へ引き継ぐ
-      const legacyDefault = key === 'tiktok_thumbnail' || key === 'note_thumbnail' || key === 'wordpress_eyecatch'
+      const legacyDefault = key === 'tiktok_thumbnail' || key === 'note_image' || key === 'note_thumbnail' || key === 'wordpress_eyecatch'
         ? 'withText'
         : 'noText';
       result[key] = { withText: '', noText: '', [legacyDefault]: v };
@@ -163,11 +163,10 @@ export default function App() {
   // 恋愛バズ動画メーカー用の画面切り替え（既存のorganized等のstateパターンを踏襲）。
   // 'sns' = 通常の投稿マスター画面 / 'video' = 動画メーカー画面
   const [activeView, setActiveView] = useState('sns');
-  // 共通リンク管理パネルの開閉、および note/X/Threads それぞれで選択中のリンクID
+  // 共通リンク管理パネルの開閉、およびnoteで選択中のリンクID
+  // （X/Threadsは常に①番目のリンクを自動使用するため、選択状態を持たない）
   const [linksOpen, setLinksOpen] = useState(false);
   const [noteLinkId, setNoteLinkId] = useState(restoredCurrentPost?.noteLinkId || 'none');
-  const [xLinkId, setXLinkId] = useState(restoredCurrentPost?.xLinkId || 'none');
-  const [threadsLinkId, setThreadsLinkId] = useState(restoredCurrentPost?.threadsLinkId || 'none');
   const toastTimer = useRef(null);
 
   const { history, savePost, deletePost, clearHistory } = usePostHistory();
@@ -184,10 +183,8 @@ export default function App() {
       imagePrompts,
       organized,
       noteLinkId,
-      xLinkId,
-      threadsLinkId,
     });
-  }, [rawInput, sections, imagePrompts, organized, noteLinkId, xLinkId, threadsLinkId]);
+  }, [rawInput, sections, imagePrompts, organized, noteLinkId]);
 
   const showToast = useCallback((message) => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -225,10 +222,8 @@ export default function App() {
     setSections({ ...EMPTY_SECTIONS_TEMPLATE, ...restSections });
     setImagePrompts({ ...EMPTY_IMAGE_PROMPTS, ...images });
     setOrganized(true);
-    // 新しい投稿を整理したら、前回選択していたリンクをリセットする
+    // 新しい投稿を整理したら、前回選択していたnoteリンクをリセットする
     setNoteLinkId('none');
-    setXLinkId('none');
-    setThreadsLinkId('none');
     showToast('✨ 投稿を整理しました');
   }, [rawInput, showToast]);
 
@@ -244,13 +239,20 @@ export default function App() {
   }, []);
 
   const handleCopyField = useCallback(async (key, label) => {
-    const value =
-      key === 'wordpress_body'
-        ? toWordPressHeadings(sections.wordpress_body)
-        : sections[key];
+    let value = sections[key];
+    if (key === 'wordpress_body') {
+      value = toWordPressHeadings(sections.wordpress_body);
+    } else if (key === 'x' || key === 'threads') {
+      // X/Threadsの本文は、①番目に登録されたリンクを自動で末尾に付与してコピーする
+      // （URLが未登録の場合はfitPostWithLinkが本文のみをそのまま返す）。
+      const url = links[0]?.url || '';
+      const limit = key === 'x' ? X_LIMIT : THREADS_LIMIT;
+      const lengthFn = key === 'x' ? calcXLength : calcThreadsLength;
+      value = fitPostWithLink({ body: sections[key], url, limit, lengthFn }).finalText;
+    }
     const ok = await copyToClipboard(value);
     showToast(ok ? '📋 ' + label + 'をコピーしました' : '❌ コピーに失敗しました');
-  }, [sections, showToast]);
+  }, [sections, links, showToast]);
 
   const handleCopyImageSub = useCallback(async (key, variant, label) => {
     const value = imagePrompts[key]?.[variant] || '';
@@ -282,7 +284,8 @@ export default function App() {
     showToast(ok ? '📋 全部コピーしました' : '❌ コピーに失敗しました');
   }, [sections, imagePrompts, showToast]);
 
-  // 現在選択中のリンク情報（投稿履歴に保存する用）。「なし」の場合はnull。
+  // 現在選択中のnoteリンク情報（投稿履歴に保存する用）。「なし」の場合はnull。
+  // X/Threadsは選択式ではなく①番目のリンクを自動使用するため、ここでは保存しない。
   const buildSelectedLinksSnapshot = useCallback(() => {
     const pick = (id) => {
       if (id === 'none') return null;
@@ -291,10 +294,8 @@ export default function App() {
     };
     return {
       note: pick(noteLinkId),
-      x: pick(xLinkId),
-      threads: pick(threadsLinkId),
     };
-  }, [links, noteLinkId, xLinkId, threadsLinkId]);
+  }, [links, noteLinkId]);
 
   const handleSave = useCallback(() => {
     const hasContent = Object.values(sections).some((v) => v && v.trim());
@@ -321,10 +322,8 @@ export default function App() {
     setSections({ ...EMPTY_SECTIONS_TEMPLATE, ...restSaved });
     // 旧バージョンの履歴（imagePromptsが文字列形式）でも壊れないよう正規化する
     setImagePrompts(normalizeImagePromptsShape(__imagePrompts));
-    // 過去の投稿でどのリンクを使用していたかを復元する（未保存の古い履歴は「なし」扱い）
+    // 過去の投稿でどのnoteリンクを使用していたかを復元する（未保存の古い履歴は「なし」扱い）
     setNoteLinkId(__selectedLinks?.note?.id ? String(__selectedLinks.note.id) : 'none');
-    setXLinkId(__selectedLinks?.x?.id ? String(__selectedLinks.x.id) : 'none');
-    setThreadsLinkId(__selectedLinks?.threads?.id ? String(__selectedLinks.threads.id) : 'none');
     setOrganized(true);
     setHistoryOpen(false);
     showToast('📚 過去の投稿を読み込みました');
@@ -397,8 +396,9 @@ export default function App() {
     { key: 'note_hashtags', label: '【noteハッシュタグ】', value: sections.note_hashtags, copyText: 'ハッシュタグコピー', rows: 2 },
   ];
 
-  // note/X/Threadsの「リンク利用」拡張ブロック（共通リンクを参照するだけで、既存の
+  // noteの「リンク利用」拡張ブロック（共通リンクを参照するだけで、既存の
   // フィールド・コピー機能・GEM出力そのものには一切手を加えない）
+  // X/Threadsは本文コピー自体に①番目のリンクを自動付与するため、拡張ブロックは持たない。
   const noteExtraBlock = (
     <NoteLinkBlock
       links={links}
@@ -406,30 +406,6 @@ export default function App() {
       onSelect={setNoteLinkId}
       onCopyName={(name) => handleCopyLinkField(name, 'リンク名')}
       onCopyUrl={(url) => handleCopyLinkField(url, 'URL')}
-    />
-  );
-
-  const xExtraBlock = (
-    <SocialLinkBlock
-      links={links}
-      selectedId={xLinkId}
-      onSelect={setXLinkId}
-      body={sections.x}
-      limit={X_LIMIT}
-      lengthFn={calcXLength}
-      onCopyFinal={(text) => handleCopyLinkField(text, 'リンク付き投稿文')}
-    />
-  );
-
-  const threadsExtraBlock = (
-    <SocialLinkBlock
-      links={links}
-      selectedId={threadsLinkId}
-      onSelect={setThreadsLinkId}
-      body={sections.threads}
-      limit={THREADS_LIMIT}
-      lengthFn={calcThreadsLength}
-      onCopyFinal={(text) => handleCopyLinkField(text, 'リンク付き投稿文')}
     />
   );
 
@@ -484,88 +460,3 @@ export default function App() {
                     fields={instagramFields}
                     onChangeField={updateField}
                     onCopyField={handleCopyField}
-                  />
-                  <MultiFieldCard
-                    label="X"
-                    icon="𝕏"
-                    accent="x"
-                    fields={xFields}
-                    onChangeField={updateField}
-                    onCopyField={handleCopyField}
-                    extraBlock={xExtraBlock}
-                  />
-                  <MultiFieldCard
-                    label="Threads"
-                    icon="🧵"
-                    accent="threads"
-                    fields={threadsFields}
-                    onChangeField={updateField}
-                    onCopyField={handleCopyField}
-                    extraBlock={threadsExtraBlock}
-                  />
-                  <MultiFieldCard
-                    label="note"
-                    icon="📝"
-                    fields={noteFields}
-                    onChangeField={updateField}
-                    onCopyField={handleCopyField}
-                    extraBlock={noteExtraBlock}
-                  />
-                  <MultiFieldCard
-                    label="WordPress"
-                    icon="🌐"
-                    fields={wordpressFields}
-                    onChangeField={updateField}
-                    onCopyField={handleCopyField}
-                  />
-
-                  <ImagePromptSection
-                    prompts={imagePrompts}
-                    onChangeSub={updateImageSub}
-                    onCopySub={handleCopyImageSub}
-                    onCopyAllPrompts={handleCopyAllImagePrompts}
-                  />
-                </div>
-              </main>
-            </>
-          )}
-
-          {!organized && (
-            <div className="app__empty">
-              <p>💎 GEMで生成した投稿を貼り付けて「投稿を整理する」を押すと、ここにSNSごとの投稿カードが並びます。</p>
-            </div>
-          )}
-        </>
-      )}
-
-      {activeView === 'video' && (
-        <VideoMaker data={videoSourceData} onBack={handleBackToSns} onCopy={handleVideoCopy} />
-      )}
-
-      <HistoryPanel
-        open={historyOpen}
-        history={history}
-        onClose={() => setHistoryOpen(false)}
-        onSelect={handleSelectHistory}
-        onDelete={(id) => {
-          deletePost(id);
-          showToast('🗑️ 削除しました');
-        }}
-        onClearAll={() => {
-          clearHistory();
-          showToast('🗑️ 履歴をすべて削除しました');
-        }}
-      />
-
-      <LinksPanel
-        open={linksOpen}
-        links={links}
-        onUpdateLink={updateLink}
-        onClose={() => setLinksOpen(false)}
-        onCopied={showToast}
-      />
-
-      <Toast message={toast.message} visible={toast.visible} />
-    </div>
-  );
-}
