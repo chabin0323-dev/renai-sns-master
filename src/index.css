@@ -17,12 +17,13 @@
   --overlay: rgba(10, 6, 14, 0.72);
 
   /* --- SNSごとのアクセントカラー（カードの色分け用） ---
-     全体のダーク×ゴールド×薔薇色のトーンを崩さない範囲で、
-     各SNSのブランドイメージを踏まえた控えめな色調にしている。 */
-  --accent-tiktok: #4fd6c8;
-  --accent-instagram: #e08fb0;
-  --accent-x: #b9c4d6;
-  --accent-threads: #b9a0e6;
+     スクロール中でも瞬時に判別できるよう、各SNSのブランドを想起させる
+     はっきりした色調にしている（ダーク背景でも視認できる明度に調整）。
+     note/wordpressは対象外のため、控えめな元の色調のまま維持する。 */
+  --accent-tiktok: #25f4ee;
+  --accent-instagram: #e1306c;
+  --accent-x: #8fa2c7;
+  --accent-threads: #d5d9dd;
   --accent-note: #6fcf9e;
   --accent-wordpress: #7fa6e0;
 
