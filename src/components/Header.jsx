@@ -1,6 +1,6 @@
 import './Header.css';
 
-export default function Header({ onOpenHistory, historyCount, onOpenLinks }) {
+export default function Header({ onOpenHistory, historyCount, onOpenLinks, onOpenBuzzCheck }) {
   return (
     <header className="app-header">
       <div className="app-header__crest" aria-hidden="true">
@@ -18,6 +18,9 @@ export default function Header({ onOpenHistory, historyCount, onOpenLinks }) {
       <div className="app-header__actions">
         <button className="app-header__links-btn" onClick={onOpenLinks} type="button">
           🔗 リンク管理
+        </button>
+        <button className="app-header__links-btn" onClick={onOpenBuzzCheck} type="button">
+          🔥 バズ診断
         </button>
         <button className="app-header__history-btn" onClick={onOpenHistory} type="button">
           📚 投稿履歴
