@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Header from './components/Header.jsx';
 import InputPanel from './components/InputPanel.jsx';
 import QuickStartButton from './components/QuickStartButton.jsx';
@@ -6,6 +6,7 @@ import CopyAllBar from './components/CopyAllBar.jsx';
 import MultiFieldCard from './components/MultiFieldCard.jsx';
 import ImagePromptSection from './components/ImagePromptSection.jsx';
 import HistoryPanel from './components/HistoryPanel.jsx';
+import BuzzCheckPanel from './components/BuzzCheckPanel.jsx';
 import LinksPanel from './components/LinksPanel.jsx';
 import NoteLinkBlock from './components/NoteLinkBlock.jsx';
 import Toast from './components/Toast.jsx';
@@ -22,6 +23,7 @@ import {
   EMPTY_SECTIONS_TEMPLATE,
   IMAGE_SUB_DEFS,
 } from './utils/parser.js';
+import { analyzeHistory, buildGemReminderText } from './utils/buzzCheck.js';
 import './App.css';
 
 const EMPTY_IMAGE_PROMPTS = {
@@ -159,6 +161,7 @@ export default function App() {
   );
   const [organized, setOrganized] = useState(!!restoredCurrentPost?.organized);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [buzzCheckOpen, setBuzzCheckOpen] = useState(false);
   const [toast, setToast] = useState({ message: '', visible: false });
   // 恋愛バズ動画メーカー用の画面切り替え（既存のorganized等のstateパターンを踏襲）。
   // 'sns' = 通常の投稿マスター画面 / 'video' = 動画メーカー画面
@@ -171,6 +174,10 @@ export default function App() {
 
   const { history, savePost, deletePost, clearHistory } = usePostHistory();
   const { links, updateLink } = useLinks();
+
+  // 🔥バズ診断：直近の投稿履歴からCTA・画像テンプレの使い回しを検出する。
+  // historyが変わるたびに再計算すれば十分なのでuseMemoで包む。
+  const buzzReport = useMemo(() => analyzeHistory(history, 8), [history]);
 
   // 【自動保存の実行】現在の作業状態が変化するたびに、localStorageへ自動保存する。
   // ユーザーの「保存」操作を必要とせず、ページ再読み込み・アプリ終了後も復元できるようにする。
@@ -198,6 +205,12 @@ export default function App() {
     const ok = await copyToClipboard(text);
     showToast(ok ? '📋 コピーしました。GEMに貼り付けてください' : '❌ コピーに失敗しました');
   }, [showToast]);
+
+  const handleCopyBuzzReminder = useCallback(async () => {
+    const text = buildGemReminderText(buzzReport);
+    const ok = await copyToClipboard(text);
+    showToast(ok ? '📋 コピーしました。GEMへの依頼文に貼り足してください' : '❌ コピーに失敗しました');
+  }, [buzzReport, showToast]);
 
   const handleClearInput = useCallback(() => {
     // 貼り付け欄のReact stateを確実に空文字にする。
@@ -269,7 +282,7 @@ export default function App() {
         parts.push(def.label + '\n' + value.trim());
       }
     }
-    const text = parts.join('\n\n');
+        const text = parts.join('\n\n');
     const ok = await copyToClipboard(text);
     showToast(ok ? '📋 全プロンプトをコピーしました' : '❌ コピーに失敗しました');
   }, [imagePrompts, showToast]);
@@ -396,8 +409,8 @@ export default function App() {
     { key: 'note_hashtags', label: '【noteハッシュタグ】', value: sections.note_hashtags, copyText: 'ハッシュタグコピー', rows: 2 },
   ];
 
-  // noteの「リンク利用」拡張ブロック（共通リンクを参照するだけで、既存の
-  // フィールド・コピー機能・GEM出力そのものには一切手を加えない）
+  // noteの「リンク利用」拡張ブロック(共通リンクを参照するだけで、既存の
+  // フィールド・コピー機能・GEM出力そのものには一切手を加えない)
   // X/Threadsは本文コピー自体に①番目のリンクを自動付与するため、拡張ブロックは持たない。
   const noteExtraBlock = (
     <NoteLinkBlock
@@ -420,7 +433,12 @@ export default function App() {
 
   return (
     <div className="app">
-      <Header onOpenHistory={() => setHistoryOpen(true)} historyCount={history.length} onOpenLinks={() => setLinksOpen(true)} />
+      <Header
+        onOpenHistory={() => setHistoryOpen(true)}
+        historyCount={history.length}
+        onOpenLinks={() => setLinksOpen(true)}
+        onOpenBuzzCheck={() => setBuzzCheckOpen(true)}
+      />
 
       {activeView === 'sns' && (
         <>
@@ -529,6 +547,13 @@ export default function App() {
           clearHistory();
           showToast('🗑️ 履歴をすべて削除しました');
         }}
+      />
+
+      <BuzzCheckPanel
+        open={buzzCheckOpen}
+        report={buzzReport}
+        onClose={() => setBuzzCheckOpen(false)}
+        onCopyReminder={handleCopyBuzzReminder}
       />
 
       <LinksPanel
