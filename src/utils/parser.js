@@ -224,7 +224,7 @@ export const IMAGE_SUB_DEFS = [
   {
     key: 'note_thumbnail',
     order: 4,
-    label: '④ noteサムネイル・16:9（1280×720px）',
+    label: '③ noteサムネイル・16:9（1280×720px）',
     role: 'noteのサムネイルとして使用',
     copyLabel: 'noteサムネイルプロンプトをコピー',
     activeVariant: 'withText',
@@ -233,7 +233,7 @@ export const IMAGE_SUB_DEFS = [
   {
     key: 'wordpress_eyecatch',
     order: 5,
-    label: '⑤ WordPressアイキャッチ・16:9（1280×720px）',
+    label: '④ WordPressアイキャッチ・16:9（1280×720px）',
     role: 'WordPress記事のアイキャッチ画像として使用（GEMが④のみ出力する場合は④と同じ内容）',
     copyLabel: 'WordPressアイキャッチプロンプトをコピー',
     activeVariant: 'withText',
