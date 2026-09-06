@@ -153,6 +153,35 @@ export function normalizeHashtags(text) {
 }
 
 /**
+ * TikTok台本の音声読み上げ（CapCut等）対策：
+ * 英単語をそのまま残すと「Instagram」を「インスタグラム」ではなく
+ * ローマ字読みしてしまうなど、読み上げが不自然になるケースがある。
+ * よく登場する英単語を、あらかじめ自然な発音のカタカナへ変換する。
+ * ※ tiktok_script以外には一切使用しない。
+ * ※ 単語の追加は、このリストに1行足すだけでよい。
+ */
+const ENGLISH_TO_KATAKANA_MAP = [
+  { pattern: /instagram/gi, katakana: 'インスタグラム' },
+  { pattern: /tiktok/gi, katakana: 'ティックトック' },
+  { pattern: /threads/gi, katakana: 'スレッズ' },
+  { pattern: /wordpress/gi, katakana: 'ワードプレス' },
+  { pattern: /twitter/gi, katakana: 'ツイッター' },
+  { pattern: /youtube/gi, katakana: 'ユーチューブ' },
+  { pattern: /facebook/gi, katakana: 'フェイスブック' },
+  { pattern: /\bline\b/gi, katakana: 'ライン' },
+  { pattern: /\bdm\b/gi, katakana: 'ディーエム' },
+];
+
+function convertEnglishToKatakana(text) {
+  if (!text) return text;
+  let result = text;
+  for (const { pattern, katakana } of ENGLISH_TO_KATAKANA_MAP) {
+    result = result.replace(pattern, katakana);
+  }
+  return result;
+}
+
+/**
  * TikTok台本の可読性向上のための整形。
  * 段落（空行区切り）は維持したまま、各段落を1行あたり最大SCRIPT_MAX_LINE_LEN文字に
  * 収まるよう強制的に改行し直す。
@@ -269,6 +298,7 @@ export function parseSections(raw) {
     result[key] = normalizeHashtags(result[key]);
   }
 
+  result.tiktok_script = convertEnglishToKatakana(result.tiktok_script);
   result.tiktok_script = reflowScriptText(result.tiktok_script);
 
   return result;
