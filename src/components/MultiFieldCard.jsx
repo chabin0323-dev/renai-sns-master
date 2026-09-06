@@ -1,5 +1,4 @@
 import './MultiFieldCard.css';
-
 /**
  * 複数の項目（タイトル・本文・ハッシュタグなど）を持つセクションを1枚のカードに表示する。
  * 各項目は完全に独立しており、コピー時に他の項目と混ざることはない。
@@ -19,10 +18,14 @@ export default function MultiFieldCard({ label, icon, fields, onChangeField, onC
           {label}
         </h2>
       </header>
-
       <div className="mf-card__fields">
         {fields.map((field) => {
           const isEmpty = !field.value || !field.value.trim();
+          // TikTok台本(tiktok_script)だけ、読みやすさ向上のため専用クラスを追加する。
+          // 他のフィールド（TikTokタイトル・ハッシュタグ含む）には一切影響しない。
+          const textareaClassName = field.key === 'tiktok_script'
+            ? 'mf-field__textarea mf-field__textarea--script'
+            : 'mf-field__textarea';
           return (
             <div className="mf-field" key={field.key}>
               <div className="mf-field__header">
@@ -37,7 +40,7 @@ export default function MultiFieldCard({ label, icon, fields, onChangeField, onC
                 </button>
               </div>
               <textarea
-                className="mf-field__textarea"
+                className={textareaClassName}
                 value={field.value}
                 onChange={(e) => onChangeField(field.key, e.target.value)}
                 placeholder={field.placeholder || `${field.label}がここに表示されます`}
@@ -47,9 +50,7 @@ export default function MultiFieldCard({ label, icon, fields, onChangeField, onC
           );
         })}
       </div>
-
       {extraBlock && <div className="mf-card__extra">{extraBlock}</div>}
-
       {videoAction && (
         <button
           className="mf-card__video-btn"
