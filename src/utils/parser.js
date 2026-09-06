@@ -154,30 +154,54 @@ export function normalizeHashtags(text) {
 
 /**
  * TikTok台本の可読性向上のための整形。
- * 既存の改行（段落区切り）は維持しつつ、実質10行を超えたら
- * 句点「。」の直後などきりの良い位置で空行（段落区切り）を追加する。
+ * 段落（空行区切り）は維持したまま、各段落内のテキストを句読点（、。！？）単位で
+ * つなぎ直し、1行あたり約SCRIPT_MAX_LINE_LEN文字になるよう実際の改行を入れ直す。
+ * 画面幅やフォントサイズに依存せず、常に短い行で表示されるようにするための処理。
  * ※ tiktok_script以外には一切使用しない。
  */
-function formatScriptForReadability(text) {
+const SCRIPT_MAX_LINE_LEN = 15;
+
+function reflowScriptText(text) {
   if (!text || !text.trim()) return text;
 
-  const lines = text.split('\n');
-  const outputLines = [];
-  let nonEmptyCount = 0;
+  // 空行（段落区切り）で分割し、各段落は個別に処理する
+  const paragraphs = text.replace(/\r\n/g, '\n').split(/\n\s*\n/);
 
-  for (const line of lines) {
-    outputLines.push(line);
-    if (line.trim() !== '') {
-      nonEmptyCount++;
-      // 10行たまったら、次が空行でなければ区切りを追加
-      if (nonEmptyCount % 10 === 0) {
-        outputLines.push('');
+  const rebuiltParagraphs = paragraphs.map((para) => {
+    // 段落内の既存の改行は一旦つなげて、句読点単位で組み直す
+    const joined = para.split('\n').map((l) => l.trim()).join('').trim();
+    if (!joined) return '';
+
+    // 句読点（、。！？!?…）を区切りとして、区切り文字を残したまま分割
+    const segments = joined.match(/[^、。！？!?…]+[、。！？!?…]?/g) || [joined];
+
+    const lines = [];
+    let current = '';
+    for (const seg of segments) {
+      const segLen = Array.from(seg).length;
+      const currentLen = Array.from(current).length;
+
+      if (current && currentLen + segLen > SCRIPT_MAX_LINE_LEN) {
+        lines.push(current);
+        current = seg;
+      } else {
+        current += seg;
+      }
+
+      // 1セグメント自体がMAX_LINE_LENを大きく超える場合（句読点が少ない長文）は
+      // 強制的に文字数で区切る
+      while (Array.from(current).length > SCRIPT_MAX_LINE_LEN * 1.6) {
+        const chars = Array.from(current);
+        lines.push(chars.slice(0, SCRIPT_MAX_LINE_LEN).join(''));
+        current = chars.slice(SCRIPT_MAX_LINE_LEN).join('');
       }
     }
-  }
+    if (current) lines.push(current);
 
-  // 連続する空行を1つにまとめる
-  return outputLines.join('\n').replace(/\n{3,}/g, '\n\n');
+    return lines.join('\n');
+  });
+
+  return rebuiltParagraphs.join('\n\n');
 }
 
 export function parseSections(raw) {
@@ -220,7 +244,7 @@ export function parseSections(raw) {
     result[key] = normalizeHashtags(result[key]);
   }
 
-  result.tiktok_script = formatScriptForReadability(result.tiktok_script);
+  result.tiktok_script = reflowScriptText(result.tiktok_script);
 
   return result;
 }
