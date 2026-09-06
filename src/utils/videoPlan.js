@@ -349,3 +349,21 @@ export function buildCapCutInstructions({ theme, title, timeline, hasImagePrompt
   lines.push('・意外性パートの核心ワード（❗強調の行）：小さな効果音（「実は」「本当は」など）');
   lines.push('・CTA直前：BGMを一段上げる、または短い転換音');
   lines.push('');
+  lines.push('■ CTAの位置');
+  const ctaBeat = timeline.beats.find((b) => b.key === 'cta');
+  if (ctaBeat) {
+    lines.push(`・${formatBeatRange(ctaBeat)}（動画終盤）`);
+    lines.push('・台本にすでに含まれている既存の導線（下記CTAテロップ）をそのまま使用。新しいCTA文言は追加していません');
+    ctaBeat.lines.forEach((l) => lines.push(`  ・${l}`));
+  }
+
+  if (title) {
+    lines.push('');
+    lines.push(`参考タイトル：${title}`);
+  }
+  if (theme) {
+    lines.push(`参考テーマ：${theme}`);
+  }
+
+  return lines.join('\n');
+}
