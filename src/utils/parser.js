@@ -184,12 +184,7 @@ function convertEnglishToKatakana(text) {
 /**
  * TikTok台本の可読性向上のための整形。
  *
- * 【重要・改訂】以前は「1行を必ず一定の文字数以内に収める」ために文字数で
- * 強制的に改行を入れていたが、この方式は「感覚」「覗き見」「意図」のような
- * 漢字の熟語の途中で改行を入れてしまうことがあり、CapCut等の音声読み上げが
- * 熟語を分断して誤読する重大な不具合を引き起こしていた。
- *
- * そのため、行の区切りは必ず「句読点（、。！？!?…）の直後」のみとし、
+ * 行の区切りは必ず「句読点（、。！？!?…）の直後」のみとし、
  * 文字数による強制的な区切りは一切行わない。これにより、単語・熟語が
  * 行の途中で分断されることは構造的に発生しない（区切り位置は常に、
  * 元の文の意味的な切れ目と一致する）。
@@ -469,40 +464,4 @@ export function parseImagePrompts(imageRaw) {
     return finalize();
   }
 
-  const fenceRegex = /```[a-zA-Z]*\n([\s\S]*?)```/g;
-  const order = ['tiktok_video', 'tiktok_thumbnail', 'note_image', 'note_thumbnail', 'wordpress_eyecatch'];
-  let match;
-  let i = 0;
-  while ((match = fenceRegex.exec(imageRaw)) !== null && i < order.length) {
-    rawSubResult[order[i]] = match[1].trim();
-    i++;
-  }
-  if (!rawSubResult.wordpress_eyecatch.trim() && rawSubResult.note_thumbnail.trim()) {
-    rawSubResult.wordpress_eyecatch = rawSubResult.note_thumbnail;
-  }
-  return finalize();
-}
-
-export const SECTION_ORDER = [
-  { key: 'theme', label: '選定テーマ' },
-  { key: 'tiktok_title', label: 'TikTokタイトル' },
-  { key: 'tiktok_script', label: 'TikTok台本' },
-  { key: 'tiktok_hashtags', label: 'TikTokハッシュタグ' },
-  { key: 'instagram', label: 'Instagram' },
-  { key: 'instagram_hashtags', label: 'Instagramハッシュタグ' },
-  { key: 'x', label: 'X' },
-  { key: 'x_hashtags', label: 'Xハッシュタグ' },
-  { key: 'threads', label: 'Threads' },
-  { key: 'threads_hashtags', label: 'Threadsハッシュタグ' },
-  { key: 'note_title', label: 'noteタイトル' },
-  { key: 'note_body', label: 'note本文' },
-  { key: 'note_hashtags', label: 'noteハッシュタグ' },
-  { key: 'wordpress_seo_title', label: 'WordPress SEOタイトル' },
-  { key: 'wordpress_article_title', label: 'WordPress記事タイトル' },
-  { key: 'wordpress_meta_description', label: 'WordPressメタディスクリプション' },
-  { key: 'wordpress_keywords', label: 'WordPressキーワード' },
-  { key: 'wordpress_body', label: 'WordPress本文' },
-  { key: 'wordpress_cta', label: 'WordPress CTA' },
-];
-
-export { EMPTY_SECTIONS_TEMPLATE };
+  const fenceRegex
