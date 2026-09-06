@@ -158,20 +158,37 @@ export function normalizeHashtags(text) {
  * 収まるよう強制的に改行し直す。
  * 各行の末尾は、その文字数の範囲内に句読点（、。！？!?…）があればそこで区切り、
  * 無ければ文字数で強制的に区切るため、必ず指定文字数以内に収まる（環境やフォント
- * サイズに依存しない）。
+ * サイズに依存しない）。英数字（Instagramのような単語）の途中では区切らないよう、
+ * 必要な場合のみ単語の終わりまで延長する。
  * ※ tiktok_script以外には一切使用しない。
  */
 const SCRIPT_MAX_LINE_LEN = 8;
 const SCRIPT_PUNCT = /[、。！？!?…]/;
+// 英数字（半角英字・数字）の連続。この連続の途中では改行を入れない
+// （"Instagram"のような単語が"Instag"「ram"のように分断されるのを防ぐ）。
+const ALNUM_CHAR = /[A-Za-z0-9]/;
 
 function wrapParagraph(joined) {
   const chars = Array.from(joined);
   const lines = [];
   let start = 0;
+
   while (start < chars.length) {
+    // まず、英数字の単語を分断しない形で「候補の区切り位置」を決める。
+    // start位置から1文字ずつ進み、SCRIPT_MAX_LINE_LENに達した後は、
+    // 英数字が連続している間だけ、その単語の終わりまで延長する。
     let end = Math.min(start + SCRIPT_MAX_LINE_LEN, chars.length);
+    while (
+      end < chars.length &&
+      ALNUM_CHAR.test(chars[end - 1]) &&
+      ALNUM_CHAR.test(chars[end])
+    ) {
+      end++;
+    }
+
+    // ウィンドウ内（start〜end）で最も後ろにある句読点の位置を探し、
+    // 見つかればそこで区切る（区切り位置がstartより後ろの場合のみ採用）。
     if (end < chars.length) {
-      // ウィンドウ内（start〜end）で最も後ろにある句読点の位置を探し、そこで区切る
       let breakAt = -1;
       for (let i = end - 1; i > start; i--) {
         if (SCRIPT_PUNCT.test(chars[i])) {
@@ -179,13 +196,20 @@ function wrapParagraph(joined) {
           break;
         }
       }
-      if (breakAt !== -1) {
+      if (breakAt !== -1 && breakAt + 1 > start) {
         end = breakAt + 1;
       }
     }
+
+    // 安全装置：どんな場合でも必ず1文字以上は進める（無限ループを絶対に防ぐ）
+    if (end <= start) {
+      end = start + 1;
+    }
+
     lines.push(chars.slice(start, end).join(''));
     start = end;
   }
+
   return lines.join('\n');
 }
 
