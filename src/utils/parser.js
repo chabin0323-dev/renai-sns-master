@@ -189,17 +189,72 @@ function convertEnglishToKatakana(text) {
   return result;
 }
 
+// 句読点に加え、「これらの直後なら単語を壊さず安全に改行できる」助詞・接続表現。
+// 長いものから先に判定する（「けれど」を「け」より先に見つけるため）。
+// 単独の「た」「て」「で」「な」等は、動詞・名詞の内部にも現れうるため
+// あえて含めない（できる／たべる／でんわ等を分断しないため）。
+const SAFE_BREAK_TOKENS = [
+  "ということは", "というのは", "んですけど", "んだけど", "というか",
+  "けれども", "だけれど", "けれど", "だけど", "ですが", "ますが",
+  "ながら", "ければ", "のに", "ので", "から", "まで", "たり",
+  "よね", "かな", "かも", "って", "とか", "には", "とは", "でも",
+];
+
+const SCRIPT_TARGET_LEN = 10;
+
 /**
- * 【重要・修正済み】TikTok台本の可読性向上のための整形。
+ * 句読点、または安全な助詞・接続表現が見つかる位置までを1つの単位として
+ * 抽出する。単語の途中で切れる可能性がある「文字数だけでの強制区切り」は、
+ * 過去に熟語（感覚・覗き見・意図・違和感等）を分断し、CapCut等の音声読み上げで
+ * 誤読を引き起こす重大な不具合を起こしたため、絶対に行わない。
+ * 安全な区切り候補が見つからない場合は、無理に切らずそのまま1つの単位として残す。
+ */
+function splitIntoSafeSegments(joined) {
+  const segments = [];
+  let cursor = 0;
+
+  while (cursor < joined.length) {
+    let matchEnd = -1;
+
+    // 句読点（最優先・最も安全）
+    const punctMatch = joined.slice(cursor).match(/^[^、。！？!?…]*[、。！？!?…]/);
+    if (punctMatch) {
+      matchEnd = cursor + punctMatch[0].length;
+    }
+
+    // 句読点が見つからない場合、安全な助詞・接続表現を探す
+    if (matchEnd === -1) {
+      for (const token of SAFE_BREAK_TOKENS) {
+        const idx = joined.indexOf(token, cursor);
+        if (idx !== -1) {
+          const candidateEnd = idx + token.length;
+          if (matchEnd === -1 || candidateEnd < matchEnd) {
+            matchEnd = candidateEnd;
+          }
+        }
+      }
+    }
+
+    if (matchEnd === -1) {
+      // 安全な区切りが最後まで見つからない場合、残り全部を1つの単位にする
+      segments.push(joined.slice(cursor));
+      break;
+    }
+
+    segments.push(joined.slice(cursor, matchEnd));
+    cursor = matchEnd;
+  }
+
+  return segments;
+}
+
+/**
+ * TikTok台本の可読性向上のための整形。
  *
- * 過去に「1行を必ず一定の文字数以内に収める」ために文字数で強制的に
- * 改行を入れる方式を試したが、これは「感覚」「覗き見」「意図」のような
- * 漢字の熟語の途中で改行を入れてしまい、CapCut等の音声読み上げが
- * 熟語を分断して誤読する重大な不具合を引き起こした。
- *
- * そのため、行の区切りは必ず「句読点（、。！？!?…）の直後」のみとし、
- * 文字数による強制的な区切りは一切行わない。これにより、単語・熟語が
- * 行の途中で分断されることは構造的に発生しない。
+ * 句読点・安全な助詞や接続表現の単位（splitIntoSafeSegments）へ一旦分解し、
+ * それらを壊さないまま、10文字前後になるようキリの良いところでまとめ直す。
+ * 単位そのものを分割することは絶対に行わないため、単語・熟語が行の途中で
+ * 分断されることは構造的に発生しない。
  *
  * 段落（空行区切り）はそのまま維持する。
  * ※ tiktok_script以外には一切使用しない。
@@ -211,19 +266,33 @@ function reflowScriptText(text) {
   const paragraphs = text.replace(/\r\n/g, "\n").split(/\n\s*\n/);
 
   const rebuiltParagraphs = paragraphs.map((para) => {
-    // 段落内の既存の改行は一旦つなげてから、句読点単位で組み直す
+    // 段落内の既存の改行は一旦つなげてから、安全な単位ごとに組み直す
     const joined = para.split("\n").map((l) => l.trim()).join("").trim();
     if (!joined) return "";
 
-    // 句読点（、。！？!?…）を区切りとして、区切り文字を残したまま分割する。
-    // 1セグメント＝句読点までの意味のまとまりであり、単語の途中では
-    // 絶対に切れない。
-    const segments = joined.match(/[^、。！？!?…]+[、。！？!?…]?/g) || [joined];
-
-    return segments
+    const units = splitIntoSafeSegments(joined)
       .map((s) => s.trim())
-      .filter((s) => s.length > 0)
-      .join("\n");
+      .filter((s) => s.length > 0);
+
+    // 安全な単位を、10文字前後になるようキリの良いところでまとめ直す。
+    // 単位そのものは絶対に分割しない（単語・熟語を壊さないため）。
+    const lines = [];
+    let current = "";
+    for (const unit of units) {
+      if (!current) {
+        current = unit;
+        continue;
+      }
+      if (current.length < SCRIPT_TARGET_LEN) {
+        current += unit;
+      } else {
+        lines.push(current);
+        current = unit;
+      }
+    }
+    if (current) lines.push(current);
+
+    return lines.join("\n");
   });
 
   return rebuiltParagraphs.join("\n\n");
