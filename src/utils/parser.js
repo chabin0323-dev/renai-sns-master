@@ -152,6 +152,34 @@ export function normalizeHashtags(text) {
   return unique.slice(0, MAX_HASHTAGS).join(' ');
 }
 
+/**
+ * TikTok台本の可読性向上のための整形。
+ * 既存の改行（段落区切り）は維持しつつ、実質10行を超えたら
+ * 句点「。」の直後などきりの良い位置で空行（段落区切り）を追加する。
+ * ※ tiktok_script以外には一切使用しない。
+ */
+function formatScriptForReadability(text) {
+  if (!text || !text.trim()) return text;
+
+  const lines = text.split('\n');
+  const outputLines = [];
+  let nonEmptyCount = 0;
+
+  for (const line of lines) {
+    outputLines.push(line);
+    if (line.trim() !== '') {
+      nonEmptyCount++;
+      // 10行たまったら、次が空行でなければ区切りを追加
+      if (nonEmptyCount % 10 === 0) {
+        outputLines.push('');
+      }
+    }
+  }
+
+  // 連続する空行を1つにまとめる
+  return outputLines.join('\n').replace(/\n{3,}/g, '\n\n');
+}
+
 export function parseSections(raw) {
   const lines = raw.replace(/\r\n/g, '\n').split('\n');
   const result = { ...EMPTY_SECTIONS_TEMPLATE };
@@ -191,6 +219,8 @@ export function parseSections(raw) {
   for (const key of HASHTAG_FIELD_KEYS) {
     result[key] = normalizeHashtags(result[key]);
   }
+
+  result.tiktok_script = formatScriptForReadability(result.tiktok_script);
 
   return result;
 }
