@@ -86,7 +86,7 @@ function matchSectionHeading(rawLine) {
         if (stripped === strippedAlias || (stripped.startsWith(strippedAlias) && stripped.length <= strippedAlias.length + 6)) {
           return def.key;
         }
-      } else if (stripped === strippedAlias || stripped.includes(strippedAlias)) {
+      } else if (stripped === strippedAlias || (stripped.startsWith(strippedAlias) && stripped.length <= strippedAlias.length + 10)) {
         return def.key;
       }
     }
