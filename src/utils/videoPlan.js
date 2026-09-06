@@ -89,16 +89,63 @@ export function estimateDurationSeconds(lines) {
   return { totalSeconds, rawEstimateSeconds, note };
 }
 
+// 強調（メリハリ）判定に使うキーワード。
+// 「意外性・気づき」ビートの中で、これらの語を含む行は動画の核心（オチ）である
+// 可能性が高いため、テロップを強調表示する対象として優先的に選ぶ。
+const EMPHASIS_KEYWORDS = ['実は', '本当は', 'まさか', 'つまり', 'なのに', 'もしかして', '本音', 'だから'];
+
+// 強調テロップの表示時間を通常の何倍にするか（同ビート内の他の行から時間を分けてもらう）
+const EMPHASIS_FACTOR = 1.35;
+
+/**
+ * ビート内の各行のうち、「強弱をつけて表示すべき行（強調行）」を判定する。
+ * ・HOOK（つかみ）：1行目（動画のつかみで最も重要な一言）
+ * ・意外性・気づき：EMPHASIS_KEYWORDSを含む行（複数該当する場合はすべて）。
+ *   該当する行が無い場合は、そのビートの最後の行（オチの直前）を強調行とする。
+ * ・CTA：最後の行（導線の呼びかけ部分）
+ * ・共感／本題：強調行なし（メリハリの基準となる「通常のリズム」を保つ）
+ * @param {string} beatKey
+ * @param {string[]} beatLines
+ * @returns {boolean[]}
+ */
+function computeEmphasisFlags(beatKey, beatLines) {
+  const flags = beatLines.map(() => false);
+  if (beatLines.length === 0) return flags;
+
+  if (beatKey === 'hook') {
+    flags[0] = true;
+  } else if (beatKey === 'twist') {
+    let matched = false;
+    beatLines.forEach((line, i) => {
+      if (EMPHASIS_KEYWORDS.some((kw) => line.includes(kw))) {
+        flags[i] = true;
+        matched = true;
+      }
+    });
+    if (!matched) {
+      flags[flags.length - 1] = true;
+    }
+  } else if (beatKey === 'cta') {
+    flags[flags.length - 1] = true;
+  }
+
+  return flags;
+}
+
 /**
  * ビート内の各行（テロップ）に、開始秒・終了秒を割り当てる。
  * 文字数が多い行には少し長めの表示時間を割り当てつつ、
  * 極端に短くなりすぎないよう最低表示時間（0.8秒）を保証する。
+ * 強調行（emphasisFlags[i] === true）は、さらにEMPHASIS_FACTOR倍の
+ * 時間を優先的に配分し、その分だけ他の行の表示時間を少し短縮する
+ * ことで、ビート全体の合計時間は変えずにメリハリをつける。
  * @param {string[]} beatLines
  * @param {number} beatStart
  * @param {number} beatEnd
- * @returns {Array<{ text: string, startSec: number, endSec: number }>}
+ * @param {boolean[]} emphasisFlags
+ * @returns {Array<{ text: string, startSec: number, endSec: number, emphasis: boolean }>}
  */
-function assignTelopTimings(beatLines, beatStart, beatEnd) {
+function assignTelopTimings(beatLines, beatStart, beatEnd, emphasisFlags = []) {
   if (!beatLines || beatLines.length === 0) return [];
 
   const MIN_PER_LINE = 0.8;
@@ -107,6 +154,10 @@ function assignTelopTimings(beatLines, beatStart, beatEnd) {
 
   // 文字数比で仮配分し、最低表示時間を下回らないよう補正
   let rawDurations = beatLines.map((l) => Math.max(MIN_PER_LINE, (l.length / totalChars) * beatDuration));
+
+  // 強調行にはEMPHASIS_FACTOR倍の重みを与える（合計はこの後のscaleで元の尺に戻す）
+  rawDurations = rawDurations.map((v, i) => (emphasisFlags[i] ? v * EMPHASIS_FACTOR : v));
+
   const rawSum = rawDurations.reduce((a, c) => a + c, 0);
   const scale = rawSum > 0 ? beatDuration / rawSum : 1;
   rawDurations = rawDurations.map((v) => v * scale);
@@ -117,7 +168,7 @@ function assignTelopTimings(beatLines, beatStart, beatEnd) {
     const start = Math.round(cursor * 10) / 10;
     const end = isLast ? Math.round(beatEnd * 10) / 10 : Math.round((cursor + rawDurations[i]) * 10) / 10;
     cursor = end;
-    return { text, startSec: start, endSec: end };
+    return { text, startSec: start, endSec: end, emphasis: !!emphasisFlags[i] };
   });
 }
 
@@ -155,7 +206,8 @@ export function buildVideoTimeline(lines) {
     const endSec = idx === BEAT_DEFS.length - 1 ? totalSeconds : Math.min(totalSeconds, startSec + beatSeconds);
     secondCursor = endSec;
 
-    const telops = assignTelopTimings(beatLines, startSec, endSec);
+    const emphasisFlags = computeEmphasisFlags(def.key, beatLines);
+    const telops = assignTelopTimings(beatLines, startSec, endSec, emphasisFlags);
 
     return {
       key: def.key,
@@ -188,7 +240,7 @@ export function formatTelopRange(telop) {
 /**
  * 全テロップ（秒単位タイミング付き）を、ビートをまたいだ通しリストとして取得する。
  * @param {{ beats: Array }} timeline
- * @returns {Array<{ text: string, startSec: number, endSec: number, beatLabel: string }>}
+ * @returns {Array<{ text: string, startSec: number, endSec: number, beatLabel: string, emphasis: boolean }>}
  */
 export function flattenTelops(timeline) {
   const result = [];
@@ -234,6 +286,10 @@ export function suggestBgmMood(lines) {
  * CTAは外部（wordpress_cta等）から取得しない。TikTok用動画のため、
  * 台本自体の末尾（CTAビートの行＝既存のTikTok投稿の導線）をそのまま案内する。
  *
+ * テロップタイミングのうち、emphasis=trueの行には「❗強調」の注記を付け、
+ * 文字を大きく・表示時間を長めにする指示を明記する（毎回同じリズムの
+ * 動画になってしまう単調さを防ぎ、メリハリをつけるための演出指示）。
+ *
  * @param {{
  *   theme: string,
  *   title: string,
@@ -271,12 +327,14 @@ export function buildCapCutInstructions({ theme, title, timeline, hasImagePrompt
   }
   lines.push('');
 
-  lines.push('■ テロップタイミング');
+  lines.push('■ テロップタイミング（強弱つき）');
+  lines.push('※「❗強調」の行は、文字サイズを一回り大きくし、表示時間も少し長めに取ってください。それ以外の行は通常サイズでテンポよく切り替えます。');
   for (const beat of timeline.beats) {
     if (beat.telops.length === 0) continue;
     lines.push(`【${beat.label}】`);
     for (const t of beat.telops) {
-      lines.push(`${formatTelopRange(t)}｜「${t.text}」`);
+      const emphasisTag = t.emphasis ? '　❗強調：文字を大きく＋長めに表示' : '';
+      lines.push(`${formatTelopRange(t)}｜「${t.text}」${emphasisTag}`);
     }
   }
   lines.push('');
@@ -288,25 +346,6 @@ export function buildCapCutInstructions({ theme, title, timeline, hasImagePrompt
 
   lines.push('■ 効果音を入れる位置');
   lines.push('・冒頭（HOOK）：軽いインパクト音');
-  lines.push('・意外性パートの核心ワード：小さな効果音（「実は」「本当は」など）');
+  lines.push('・意外性パートの核心ワード（❗強調の行）：小さな効果音（「実は」「本当は」など）');
   lines.push('・CTA直前：BGMを一段上げる、または短い転換音');
   lines.push('');
-
-  lines.push('■ CTAの位置');
-  const ctaBeat = timeline.beats.find((b) => b.key === 'cta');
-  if (ctaBeat) {
-    lines.push(`・${formatBeatRange(ctaBeat)}（動画終盤）`);
-    lines.push('・台本にすでに含まれている既存の導線（下記CTAテロップ）をそのまま使用。新しいCTA文言は追加していません');
-    ctaBeat.lines.forEach((l) => lines.push(`  ・${l}`));
-  }
-
-  if (title) {
-    lines.push('');
-    lines.push(`参考タイトル：${title}`);
-  }
-  if (theme) {
-    lines.push(`参考テーマ：${theme}`);
-  }
-
-  return lines.join('\n');
-}
