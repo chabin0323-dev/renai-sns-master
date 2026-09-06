@@ -138,3 +138,16 @@
     font-size: 15px;
   }
 }
+/* TikTok台本(tiktok_script)専用：文字を大きく・行間広めにして1行あたりの
+   文字数を減らし、可読性を上げる。他のフィールドには一切影響しない。 */
+.mf-field__textarea--script {
+  font-size: 17px;
+  line-height: 2;
+  letter-spacing: 0.01em;
+}
+
+@media (max-width: 640px) {
+  .mf-field__textarea--script {
+    font-size: 17.5px;
+  }
+}
