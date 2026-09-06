@@ -183,65 +183,20 @@ function convertEnglishToKatakana(text) {
 
 /**
  * TikTok台本の可読性向上のための整形。
- * 段落（空行区切り）は維持したまま、各段落を1行あたり最大SCRIPT_MAX_LINE_LEN文字に
- * 収まるよう強制的に改行し直す。
- * 各行の末尾は、その文字数の範囲内に句読点（、。！？!?…）があればそこで区切り、
- * 無ければ文字数で強制的に区切るため、必ず指定文字数以内に収まる（環境やフォント
- * サイズに依存しない）。英数字（Instagramのような単語）の途中では区切らないよう、
- * 必要な場合のみ単語の終わりまで延長する。
+ *
+ * 【重要・改訂】以前は「1行を必ず一定の文字数以内に収める」ために文字数で
+ * 強制的に改行を入れていたが、この方式は「感覚」「覗き見」「意図」のような
+ * 漢字の熟語の途中で改行を入れてしまうことがあり、CapCut等の音声読み上げが
+ * 熟語を分断して誤読する重大な不具合を引き起こしていた。
+ *
+ * そのため、行の区切りは必ず「句読点（、。！？!?…）の直後」のみとし、
+ * 文字数による強制的な区切りは一切行わない。これにより、単語・熟語が
+ * 行の途中で分断されることは構造的に発生しない（区切り位置は常に、
+ * 元の文の意味的な切れ目と一致する）。
+ *
+ * 段落（空行区切り）はそのまま維持する。
  * ※ tiktok_script以外には一切使用しない。
  */
-const SCRIPT_MAX_LINE_LEN = 8;
-const SCRIPT_PUNCT = /[、。！？!?…]/;
-// 英数字（半角英字・数字）の連続。この連続の途中では改行を入れない
-// （"Instagram"のような単語が"Instag"「ram"のように分断されるのを防ぐ）。
-const ALNUM_CHAR = /[A-Za-z0-9]/;
-
-function wrapParagraph(joined) {
-  const chars = Array.from(joined);
-  const lines = [];
-  let start = 0;
-
-  while (start < chars.length) {
-    // まず、英数字の単語を分断しない形で「候補の区切り位置」を決める。
-    // start位置から1文字ずつ進み、SCRIPT_MAX_LINE_LENに達した後は、
-    // 英数字が連続している間だけ、その単語の終わりまで延長する。
-    let end = Math.min(start + SCRIPT_MAX_LINE_LEN, chars.length);
-    while (
-      end < chars.length &&
-      ALNUM_CHAR.test(chars[end - 1]) &&
-      ALNUM_CHAR.test(chars[end])
-    ) {
-      end++;
-    }
-
-    // ウィンドウ内（start〜end）で最も後ろにある句読点の位置を探し、
-    // 見つかればそこで区切る（区切り位置がstartより後ろの場合のみ採用）。
-    if (end < chars.length) {
-      let breakAt = -1;
-      for (let i = end - 1; i > start; i--) {
-        if (SCRIPT_PUNCT.test(chars[i])) {
-          breakAt = i;
-          break;
-        }
-      }
-      if (breakAt !== -1 && breakAt + 1 > start) {
-        end = breakAt + 1;
-      }
-    }
-
-    // 安全装置：どんな場合でも必ず1文字以上は進める（無限ループを絶対に防ぐ）
-    if (end <= start) {
-      end = start + 1;
-    }
-
-    lines.push(chars.slice(start, end).join(''));
-    start = end;
-  }
-
-  return lines.join('\n');
-}
-
 function reflowScriptText(text) {
   if (!text || !text.trim()) return text;
 
@@ -249,10 +204,19 @@ function reflowScriptText(text) {
   const paragraphs = text.replace(/\r\n/g, '\n').split(/\n\s*\n/);
 
   const rebuiltParagraphs = paragraphs.map((para) => {
-    // 段落内の既存の改行は一旦つなげてから、指定文字数で組み直す
+    // 段落内の既存の改行は一旦つなげてから、句読点単位で組み直す
     const joined = para.split('\n').map((l) => l.trim()).join('').trim();
     if (!joined) return '';
-    return wrapParagraph(joined);
+
+    // 句読点（、。！？!?…）を区切りとして、区切り文字を残したまま分割する。
+    // 1セグメント＝句読点までの意味のまとまりであり、単語の途中では
+    // 絶対に切れない。
+    const segments = joined.match(/[^、。！？!?…]+[、。！？!?…]?/g) || [joined];
+
+    return segments
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0)
+      .join('\n');
   });
 
   return rebuiltParagraphs.join('\n\n');
