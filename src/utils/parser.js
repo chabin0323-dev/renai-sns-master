@@ -154,12 +154,40 @@ export function normalizeHashtags(text) {
 
 /**
  * TikTok台本の可読性向上のための整形。
- * 段落（空行区切り）は維持したまま、各段落内のテキストを句読点（、。！？）単位で
- * つなぎ直し、1行あたり約SCRIPT_MAX_LINE_LEN文字になるよう実際の改行を入れ直す。
- * 画面幅やフォントサイズに依存せず、常に短い行で表示されるようにするための処理。
+ * 段落（空行区切り）は維持したまま、各段落を1行あたり最大SCRIPT_MAX_LINE_LEN文字に
+ * 収まるよう強制的に改行し直す。
+ * 各行の末尾は、その文字数の範囲内に句読点（、。！？!?…）があればそこで区切り、
+ * 無ければ文字数で強制的に区切るため、必ず指定文字数以内に収まる（環境やフォント
+ * サイズに依存しない）。
  * ※ tiktok_script以外には一切使用しない。
  */
 const SCRIPT_MAX_LINE_LEN = 15;
+const SCRIPT_PUNCT = /[、。！？!?…]/;
+
+function wrapParagraph(joined) {
+  const chars = Array.from(joined);
+  const lines = [];
+  let start = 0;
+  while (start < chars.length) {
+    let end = Math.min(start + SCRIPT_MAX_LINE_LEN, chars.length);
+    if (end < chars.length) {
+      // ウィンドウ内（start〜end）で最も後ろにある句読点の位置を探し、そこで区切る
+      let breakAt = -1;
+      for (let i = end - 1; i > start; i--) {
+        if (SCRIPT_PUNCT.test(chars[i])) {
+          breakAt = i;
+          break;
+        }
+      }
+      if (breakAt !== -1) {
+        end = breakAt + 1;
+      }
+    }
+    lines.push(chars.slice(start, end).join(''));
+    start = end;
+  }
+  return lines.join('\n');
+}
 
 function reflowScriptText(text) {
   if (!text || !text.trim()) return text;
@@ -168,37 +196,10 @@ function reflowScriptText(text) {
   const paragraphs = text.replace(/\r\n/g, '\n').split(/\n\s*\n/);
 
   const rebuiltParagraphs = paragraphs.map((para) => {
-    // 段落内の既存の改行は一旦つなげて、句読点単位で組み直す
+    // 段落内の既存の改行は一旦つなげてから、指定文字数で組み直す
     const joined = para.split('\n').map((l) => l.trim()).join('').trim();
     if (!joined) return '';
-
-    // 句読点（、。！？!?…）を区切りとして、区切り文字を残したまま分割
-    const segments = joined.match(/[^、。！？!?…]+[、。！？!?…]?/g) || [joined];
-
-    const lines = [];
-    let current = '';
-    for (const seg of segments) {
-      const segLen = Array.from(seg).length;
-      const currentLen = Array.from(current).length;
-
-      if (current && currentLen + segLen > SCRIPT_MAX_LINE_LEN) {
-        lines.push(current);
-        current = seg;
-      } else {
-        current += seg;
-      }
-
-      // 1セグメント自体がMAX_LINE_LENを大きく超える場合（句読点が少ない長文）は
-      // 強制的に文字数で区切る
-      while (Array.from(current).length > SCRIPT_MAX_LINE_LEN * 1.6) {
-        const chars = Array.from(current);
-        lines.push(chars.slice(0, SCRIPT_MAX_LINE_LEN).join(''));
-        current = chars.slice(SCRIPT_MAX_LINE_LEN).join('');
-      }
-    }
-    if (current) lines.push(current);
-
-    return lines.join('\n');
+    return wrapParagraph(joined);
   });
 
   return rebuiltParagraphs.join('\n\n');
