@@ -361,6 +361,9 @@ function splitPromptVariants(text, defaultVariant) {
  * 画像生成プロンプトのセクションを5つのサブセクション（①〜⑤）に分解する。
  * ①②③④⑤ または 1./2./3./4./5. の番号を「絶対的な位置」として扱い、
  * その番号順に5つの枠へ割り当てる（見出しの文言が多少変わっても壊れないようにするため）。
+ * 【重要】boundariesが1件も見つからない場合（GEMが番号を一切付けなかった特殊なケース）は、
+ * 全項目を空のまま返す。以前はコードフェンス（```で囲まれたブロック）を探す
+ * フォールバック処理があったが、その正規表現がファイル破損の原因になりやすかったため削除した。
  */
 export function parseImagePrompts(imageRaw) {
   const rawSubResult = {
@@ -421,56 +424,45 @@ export function parseImagePrompts(imageRaw) {
     5: 'wordpress_eyecatch',
   };
 
-  if (boundaries.length > 0) {
-    for (let i = 0; i < boundaries.length; i++) {
-      const start = boundaries[i].idx;
-      const end = i + 1 < boundaries.length ? boundaries[i + 1].idx : lines.length;
-      const num = boundaries[i].num;
-      const key = orderKeyMap[num];
-      if (!key) continue;
+  for (let i = 0; i < boundaries.length; i++) {
+    const start = boundaries[i].idx;
+    const end = i + 1 < boundaries.length ? boundaries[i + 1].idx : lines.length;
+    const num = boundaries[i].num;
+    const key = orderKeyMap[num];
+    if (!key) continue;
 
-      const segmentLines = lines.slice(start, end);
-      let bodyLines = segmentLines.slice(1);
+    const segmentLines = lines.slice(start, end);
+    let bodyLines = segmentLines.slice(1);
 
-      if (bodyLines.every((l) => !l.trim())) {
-        const labelLine = segmentLines[0];
-        const afterRatio = labelLine.match(/(?:9:16|16:9)\s*[、,。\s]*(.+)$/);
-        if (afterRatio && afterRatio[1] && afterRatio[1].trim()) {
-          bodyLines = [afterRatio[1]];
-        }
-      }
-
-      const cleaned = bodyLines
-        .map((l) => l.trim())
-        .filter((l) => l !== '```text' && l !== '```' && !/^```/.test(l))
-        .join('\n')
-        .trim();
-
-      if (cleaned) {
-        rawSubResult[key] = rawSubResult[key] ? `${rawSubResult[key]}\n${cleaned}` : cleaned;
+    if (bodyLines.every((l) => !l.trim())) {
+      const labelLine = segmentLines[0];
+      const afterRatio = labelLine.match(/(?:9:16|16:9)\s*[、,。\s]*(.+)$/);
+      if (afterRatio && afterRatio[1] && afterRatio[1].trim()) {
+        bodyLines = [afterRatio[1]];
       }
     }
 
-    // 【重要】GEM側のカスタム指示が「④はnote・WordPress共用サムネイル」という
-    // 4項目構成（①②③④のみ、⑤は存在しない）に変更された場合への対応。
-    // GEMが⑤（WordPressアイキャッチ）を独立して出力しなかった場合、
-    // ④（note_thumbnail）の内容をそのままWordPressアイキャッチとしても使う。
-    // これにより、GEMの設計（④を共用）とアプリの表示（note用カード／WordPress用カードを
-    // 別々に維持）の両方を、既存の見た目を変えずに両立できる。
-    if (!rawSubResult.wordpress_eyecatch.trim() && rawSubResult.note_thumbnail.trim()) {
-      rawSubResult.wordpress_eyecatch = rawSubResult.note_thumbnail;
+    const cleaned = bodyLines
+      .map((l) => l.trim())
+      .filter((l) => l !== '```text' && l !== '```' && !/^```/.test(l))
+      .join('\n')
+      .trim();
+
+    if (cleaned) {
+      rawSubResult[key] = rawSubResult[key] ? `${rawSubResult[key]}\n${cleaned}` : cleaned;
     }
-  const fenceRegex = /```[a-zA-Z]*\n([\s\S]*?)```/g;
-  const order = ['tiktok_video', 'tiktok_thumbnail', 'note_image', 'note_thumbnail', 'wordpress_eyecatch'];
-  let match;
-  let i = 0;
-  while ((match = fenceRegex.exec(imageRaw)) !== null && i < order.length) {
-    rawSubResult[order[i]] = match[1].trim();
-    i++;
   }
+
+  // 【重要】GEM側のカスタム指示が「④はnote・WordPress共用サムネイル」という
+  // 4項目構成（①②③④のみ、⑤は存在しない）に変更された場合への対応。
+  // GEMが⑤（WordPressアイキャッチ）を独立して出力しなかった場合、
+  // ④（note_thumbnail）の内容をそのままWordPressアイキャッチとしても使う。
+  // これにより、GEMの設計（④を共用）とアプリの表示（note用カード／WordPress用カードを
+  // 別々に維持）の両方を、既存の見た目を変えずに両立できる。
   if (!rawSubResult.wordpress_eyecatch.trim() && rawSubResult.note_thumbnail.trim()) {
     rawSubResult.wordpress_eyecatch = rawSubResult.note_thumbnail;
   }
+
   return finalize();
 }
 
@@ -497,7 +489,3 @@ export const SECTION_ORDER = [
 ];
 
 export { EMPTY_SECTIONS_TEMPLATE };
-    return finalize();
-  }
-
-  const fenceRegex
