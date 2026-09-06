@@ -161,7 +161,7 @@ export function normalizeHashtags(text) {
  * サイズに依存しない）。
  * ※ tiktok_script以外には一切使用しない。
  */
-const SCRIPT_MAX_LINE_LEN = 15;
+const SCRIPT_MAX_LINE_LEN = 8;
 const SCRIPT_PUNCT = /[、。！？!?…]/;
 
 function wrapParagraph(joined) {
